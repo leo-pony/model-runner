@@ -16,21 +16,31 @@ type Backend interface {
 	// package providing the backend implementation should also expose a
 	// variable called Name which matches the value returned by this method.
 	Name() string
+	// UsesExternalModelManagement should return true if the backend uses an
+	// external model management system and false if the backend uses the shared
+	// model manager.
+	UsesExternalModelManagement() bool
 	// Install ensures that the backend is installed. It should return a nil
 	// error if the backend is already installed. The provided HTTP client
 	// should be used for any HTTP operations.
 	Install(ctx context.Context, httpClient *http.Client) error
-	// Run is the run loop for the backend. It should start any process(es)
-	// necessary for the backend to function. It should not return until either
-	// the process(es) fail or the provided context is cancelled. By the time
-	// Run returns, any process(es) it has spawned must terminate.
+	// Run runs an OpenAI API web server on the specified Unix domain socket
+	// socket for the specified model using the backend. It should start any
+	// process(es) necessary for the backend to function for the model. It
+	// should not return until either the process(es) fail or the provided
+	// context is cancelled. By the time Run returns, any process(es) it has
+	// spawned must terminate.
 	//
-	// If desired, implementations may implement their own restart mechanisms on
-	// process failure, though implementations may also be "one-shot" (i.e.
-	// returning from Run after failure of an underlying process), in which case
-	// higher-level logic in the inference service will manage their restart.
+	// Backend implementations should be "one-shot" (i.e. returning from Run
+	// after the failure of an underlying process). Backends should not attempt
+	// to perform restarts on failure. Backends should only return a nil error
+	// in the case of context cancellation, otherwise they should return the
+	// error that caused them to fail.
 	//
 	// Run will be provided with the path to a Unix domain socket on which the
-	// backend should listen for incoming OpenAI API requests.
-	Run(ctx context.Context, socket string) error
+	// backend should listen for incoming OpenAI API requests and a model name
+	// to be loaded. Backends should not load multiple models at once and should
+	// instead load only the specified model. Backends should still respond to
+	// OpenAI API requests for other models with a 421 error code.
+	Run(ctx context.Context, socket, model string) error
 }

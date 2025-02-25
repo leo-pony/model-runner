@@ -6,6 +6,7 @@ import (
 
 	"github.com/docker/model-runner/pkg/errordef"
 	"github.com/docker/model-runner/pkg/inference"
+	"github.com/docker/model-runner/pkg/inference/models"
 	"github.com/docker/model-runner/pkg/logger"
 )
 
@@ -24,17 +25,25 @@ var (
 )
 
 // vLLM is the vLLM-based backend implementation.
-type vLLM struct{}
+type vLLM struct {
+	// modelManager is the shared model manager.
+	modelManager *models.Manager
+}
 
 // New creates a new vLLM-based backend.
-func New() (inference.Backend, error) {
-	// TODO: Implement (using vLLM struct above).
-	return nil, errors.New("not implemented")
+func New(modelManager *models.Manager) (inference.Backend, error) {
+	return &vLLM{modelManager: modelManager}, nil
 }
 
 // Name implements inference.Backend.Name.
 func (v *vLLM) Name() string {
 	return Name
+}
+
+// UsesExternalModelManagement implements
+// inference.Backend.UsesExternalModelManagement.
+func (l *vLLM) UsesExternalModelManagement() bool {
+	return false
 }
 
 // Install implements inference.Backend.Install.
@@ -44,7 +53,7 @@ func (v *vLLM) Install(ctx context.Context, httpClient *http.Client) error {
 }
 
 // Run implements inference.Backend.Run.
-func (v *vLLM) Run(ctx context.Context, socket string) error {
+func (v *vLLM) Run(ctx context.Context, socket, model string) error {
 	// TODO: Implement.
 	return errors.New("not implemented")
 }
