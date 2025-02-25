@@ -58,9 +58,9 @@ func NewManager(log logger.ComponentLogger, httpClient *http.Client) *Manager {
 	})
 	m.router.HandleFunc("POST /ml/models/create", m.handleCreateModel)
 	m.router.HandleFunc("GET /ml/models/json", m.handleGetModels)
-	m.router.HandleFunc("GET /ml/models/{name}/json", m.handleGetModel)
+	m.router.HandleFunc("GET /ml/models/{namespace}/{name}/json", m.handleGetModel)
 	m.router.HandleFunc("GET /ml/{backend}/v1/models", m.handleOpenAIGetModels)
-	m.router.HandleFunc("GET /ml/{backend}/v1/models/{name}", m.handleOpenAIGetModel)
+	m.router.HandleFunc("GET /ml/{backend}/v1/models/{namespace}/{name}", m.handleOpenAIGetModel)
 
 	// Populate the pull concurrency semaphore.
 	for i := 0; i < maximumConcurrentModelPulls; i++ {
@@ -113,7 +113,7 @@ func (m *Manager) handleGetModels(w http.ResponseWriter, r *http.Request) {
 // handleGetModel handles GET /ml/models/{name}/json requests.
 func (m *Manager) handleGetModel(w http.ResponseWriter, r *http.Request) {
 	// Query the model.
-	model, err := m.GetModel(r.PathValue("name"))
+	model, err := m.GetModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, ErrModelNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -149,7 +149,7 @@ func (m *Manager) handleOpenAIGetModels(w http.ResponseWriter, r *http.Request) 
 // handleOpenAIGetModel handles GET /ml/{backend}/v1/models/{name} requests.
 func (m *Manager) handleOpenAIGetModel(w http.ResponseWriter, r *http.Request) {
 	// Query the model.
-	model, err := m.GetModel(r.PathValue("name"))
+	model, err := m.GetModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, ErrModelNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
