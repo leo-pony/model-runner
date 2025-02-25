@@ -298,6 +298,7 @@ func (s *Scheduler) schedule(ctx context.Context) {
 			backendCtx, backendCancel = context.WithCancel(ctx)
 			backendDone = make(chan struct{})
 			go func() {
+				defer backendCancel()
 				s.backends[backend].Run(
 					backendCtx,
 					paths.HostServiceSockets().InferenceBackend(backend),
