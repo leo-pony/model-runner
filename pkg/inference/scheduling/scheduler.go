@@ -395,6 +395,10 @@ func (s *Scheduler) handleCompletionOrEmbedding(w http.ResponseWriter, r *http.R
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
+	if request.Model == "" {
+		http.Error(w, "model is required", http.StatusBadRequest)
+		return
+	}
 
 	// Check if the model manager already has the requested model available. If
 	// not, perform a pull operation before scheduling the request.
