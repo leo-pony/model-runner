@@ -113,6 +113,7 @@ func NewScheduler(
 		http.Error(w, "not found", http.StatusNotFound)
 	})
 	s.router.HandleFunc("POST /ml/{backend}/v1/chat/completions", s.handleCompletionOrEmbedding)
+	s.router.HandleFunc("POST /ml/{backend}/v1/completions", s.handleCompletionOrEmbedding)
 	s.router.HandleFunc("POST /ml/{backend}/v1/embeddings", s.handleCompletionOrEmbedding)
 
 	// Scheduler successfully initialized.
