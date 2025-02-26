@@ -2,12 +2,17 @@ package llamacpp
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 
 	"github.com/docker/model-runner/pkg/errordef"
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/inference/models"
 	"github.com/docker/model-runner/pkg/logger"
+	"github.com/docker/model-runner/pkg/paths"
 )
 
 const (
@@ -22,6 +27,8 @@ var (
 	errors = errordef.NewHelper(componentName, nil)
 	// log is the log for the backend service.
 	log = logger.Default.WithComponent(componentName)
+	// serveLog is the log for llamaCppProcess
+	serveLog = logger.MakeFileOnly("", componentName)
 )
 
 // llamaCpp is the llama.cpp-based backend implementation.
@@ -47,13 +54,63 @@ func (l *llamaCpp) UsesExternalModelManagement() bool {
 }
 
 // Install implements inference.Backend.Install.
-func (l *llamaCpp) Install(ctx context.Context, httpClient *http.Client) error {
-	// TODO: Implement.
-	return errors.New("not implemented")
+func (l *llamaCpp) Install(_ context.Context, _ *http.Client) error {
+	// TODO: Add support for dynamic update.
+	return nil
 }
 
 // Run implements inference.Backend.Run.
 func (l *llamaCpp) Run(ctx context.Context, socket, model string) error {
-	// TODO: Implement.
-	return errors.New("not implemented")
+	modelPath, err := l.modelManager.GetModelPath(model)
+	if err != nil {
+		return fmt.Errorf("failed to get model path: %w", err)
+	}
+
+	binPath, err := paths.InstallPaths.BinResourcesPath()
+	if err != nil {
+		return fmt.Errorf("failed to get llama.cpp path: %w", err)
+	}
+	llamaCppProcess := exec.CommandContext(
+		ctx,
+		filepath.Join(binPath, "com.docker.llama-server"),
+		"--model", modelPath,
+	)
+	log.Warnln("ALOHA", filepath.Join(binPath, "..", "lib"))
+	llamaCppProcess.Env = append(os.Environ(),
+		"DYLD_LIBRARY_PATH="+filepath.Join(binPath, "..", "lib"),
+		"DD_INF_UDS="+socket,
+	)
+	llamaCppProcess.Cancel = func() error {
+		return llamaCppProcess.Process.Signal(os.Interrupt)
+	}
+	serveLogStream := serveLog.Writer()
+	llamaCppProcess.Stdout = serveLogStream
+	llamaCppProcess.Stderr = serveLogStream
+
+	if err := llamaCppProcess.Start(); err != nil {
+		return errors.Wrap(err, "unable to start llama.cpp")
+	}
+
+	llamaCppErrors := make(chan error, 1)
+	go func() {
+		llamaCppErr := llamaCppProcess.Wait()
+		serveLogStream.Close()
+		llamaCppErrors <- llamaCppErr
+		close(llamaCppErrors)
+	}()
+	defer func() {
+		<-llamaCppErrors
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil
+	case llamaCppErr := <-llamaCppErrors:
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+		return errors.Wrap(llamaCppErr, "llama.cpp terminated unexpectedly")
+	}
 }

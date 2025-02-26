@@ -222,7 +222,7 @@ func (m *Manager) PullModel(ctx context.Context, model string) error {
 // list containing only a specific model. If no models exist or the specific
 // model can't be found, then an empty (but non-nil) list is returned. Any error
 // it returns is suitable for writing back to the client.
-func (m *Manager) getModels(model string) (ModelList, error) {
+func (m *Manager) getModels(model string, getGGUFPath ...any) (ModelList, error) {
 	// Initialize the model list. We always want to return a non-nil list (even
 	// if it's empty) so that it can be encoded directly to JSON.
 	models := make(ModelList, 0)
@@ -271,7 +271,11 @@ func (m *Manager) getModels(model string) (ModelList, error) {
 					return err
 				}
 				if !info.IsDir() && strings.HasSuffix(info.Name(), ".gguf") {
-					ggufFiles = append(ggufFiles, info.Name())
+					if getGGUFPath != nil {
+						ggufFiles = append(ggufFiles, path)
+					} else {
+						ggufFiles = append(ggufFiles, info.Name())
+					}
 				}
 				return nil
 			}); err != nil {
@@ -286,6 +290,9 @@ func (m *Manager) getModels(model string) (ModelList, error) {
 			Files:   ggufFiles,
 			Created: created,
 		})
+		if model != "" && getGGUFPath != nil {
+			return models, nil
+		}
 	}
 
 	// Success.
@@ -306,4 +313,14 @@ func (m *Manager) GetModel(model string) (*Model, error) {
 		return nil, ErrModelNotFound
 	}
 	return models[0], nil
+}
+
+func (m *Manager) GetModelPath(model string) (string, error) {
+	models, err := m.getModels(model, struct{}{})
+	if err != nil {
+		return "", err
+	} else if len(models) == 0 {
+		return "", ErrModelNotFound
+	}
+	return models[0].Files[0], nil
 }
