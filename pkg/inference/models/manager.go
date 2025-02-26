@@ -56,6 +56,7 @@ func NewManager(log logger.ComponentLogger, httpClient *http.Client) *Manager {
 	m.router.HandleFunc("POST /ml/models/create", m.handleCreateModel)
 	m.router.HandleFunc("GET /ml/models/json", m.handleGetModels)
 	m.router.HandleFunc("GET /ml/models/{namespace}/{name}/json", m.handleGetModel)
+	m.router.HandleFunc("DELETE /ml/models/{namespace}/{name}", m.handleDeleteModel)
 	m.router.HandleFunc("GET /ml/{backend}/v1/models", m.handleOpenAIGetModels)
 	m.router.HandleFunc("GET /ml/{backend}/v1/models/{namespace}/{name}", m.handleOpenAIGetModel)
 
@@ -102,7 +103,7 @@ func (m *Manager) handleGetModels(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleGetModel handles GET /ml/models/{name}/json requests.
+// handleGetModel handles GET /ml/models/{namespace}/{name}/json requests.
 func (m *Manager) handleGetModel(w http.ResponseWriter, r *http.Request) {
 	// Query the model.
 	model, err := m.GetModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
@@ -122,6 +123,19 @@ func (m *Manager) handleGetModel(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleDeleteModel handles DELETE /ml/models/{namespace}/{name} requests.
+func (m *Manager) handleDeleteModel(w http.ResponseWriter, r *http.Request) {
+	// TODO: We probably want the manager to have a lock / unlock mechanism for
+	// models so that active runners can retain / release a model, analogous to
+	// a container blocking the release of an image. However, unlike containers,
+	// runners are only evicted when idle or when memory is needed, so users
+	// won't be able to release the images manually. Perhaps we can unlink the
+	// corresponding GGUF files from disk and allow the OS to clean them up once
+	// the runner process exits (though this won't work for Windows, where we
+	// might need some separate cleanup process).
+	http.Error(w, "not implemented", http.StatusNotImplemented)
+}
+
 // handleOpenAIGetModels handles GET /ml/{backend}/v1/models requests.
 func (m *Manager) handleOpenAIGetModels(w http.ResponseWriter, r *http.Request) {
 	// Query models.
@@ -138,7 +152,8 @@ func (m *Manager) handleOpenAIGetModels(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// handleOpenAIGetModel handles GET /ml/{backend}/v1/models/{name} requests.
+// handleOpenAIGetModel handles GET /ml/{backend}/v1/models/{namespace}/{name}
+// requests.
 func (m *Manager) handleOpenAIGetModel(w http.ResponseWriter, r *http.Request) {
 	// Query the model.
 	model, err := m.GetModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
