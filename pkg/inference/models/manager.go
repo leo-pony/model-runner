@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
 
 	"github.com/gomlx/go-huggingface/hub"
 
@@ -32,8 +31,6 @@ type Manager struct {
 	httpClient *http.Client
 	// cacheDir is the model storage directory.
 	cacheDir string
-	// apiEnabled controls whether or not the manager responds to API requests.
-	apiEnabled atomic.Bool
 	// pullTokens is a semaphore used to restrict the maximum number of
 	// concurrent pull requests.
 	pullTokens chan struct{}
@@ -69,11 +66,6 @@ func NewManager(log logger.ComponentLogger, httpClient *http.Client) *Manager {
 
 	// Manager successfully initialized.
 	return m
-}
-
-// SetAPIEnabled sets whether or not the manager's API is enabled.
-func (m *Manager) SetAPIEnabled(enabled bool) {
-	m.apiEnabled.Store(enabled)
 }
 
 // handleCreateModel handles POST /ml/models/create requests.
@@ -168,13 +160,6 @@ func (m *Manager) handleOpenAIGetModel(w http.ResponseWriter, r *http.Request) {
 
 // ServeHTTP implement net/http.Handler.ServeHTTP.
 func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// If the service is disabled, then return an error.
-	if !m.apiEnabled.Load() {
-		http.Error(w, "models service not running", http.StatusServiceUnavailable)
-		return
-	}
-
-	// Dispatch the request accordingly.
 	m.router.ServeHTTP(w, r)
 }
 
@@ -298,10 +283,6 @@ func (m *Manager) getModels(model string, getGGUFPath ...any) (ModelList, error)
 	// Success.
 	return models, nil
 }
-
-// ErrModelNotFound is a sentinel error returned by Manager.GetModel if the
-// model could not be located.
-var ErrModelNotFound = errors.New("model not found")
 
 // GetModel looks up and returns a single model. It returns ErrModelNotFound if
 // the model could not be located.

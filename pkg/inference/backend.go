@@ -21,8 +21,8 @@ type Backend interface {
 	// model manager.
 	UsesExternalModelManagement() bool
 	// Install ensures that the backend is installed. It should return a nil
-	// error if the backend is already installed. The provided HTTP client
-	// should be used for any HTTP operations.
+	// error if installation succeeds or if the backend is already installed.
+	// The provided HTTP client should be used for any HTTP operations.
 	Install(ctx context.Context, httpClient *http.Client) error
 	// Run runs an OpenAI API web server on the specified Unix domain socket
 	// socket for the specified model using the backend. It should start any

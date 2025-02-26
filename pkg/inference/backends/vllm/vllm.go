@@ -55,5 +55,6 @@ func (v *vLLM) Install(ctx context.Context, httpClient *http.Client) error {
 // Run implements inference.Backend.Run.
 func (v *vLLM) Run(ctx context.Context, socket, model string) error {
 	// TODO: Implement.
+	log.Warn("vLLM backend is not yet supported")
 	return errors.New("not implemented")
 }
