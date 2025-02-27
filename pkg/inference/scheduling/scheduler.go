@@ -130,7 +130,7 @@ func (s *Scheduler) handleOpenAIInference(w http.ResponseWriter, r *http.Request
 	}
 
 	// Decode the model specification portion of the request body.
-	var request openAIInferenceRequest
+	var request OpenAIInferenceRequest
 	if err := json.Unmarshal(body, &request); err != nil {
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return

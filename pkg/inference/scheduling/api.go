@@ -22,9 +22,9 @@ func trimRequestPathToOpenAIRoot(path string) string {
 	return path[index:]
 }
 
-// openAIInferenceRequest is used to extract the model specification from either
+// OpenAIInferenceRequest is used to extract the model specification from either
 // a chat completion or embedding request in the OpenAI API.
-type openAIInferenceRequest struct {
+type OpenAIInferenceRequest struct {
 	// Model is the requested model name.
 	Model string `json:"model"`
 }
