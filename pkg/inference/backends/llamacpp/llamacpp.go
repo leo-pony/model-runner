@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 
 	"github.com/docker/model-runner/pkg/errordef"
 	"github.com/docker/model-runner/pkg/inference"
@@ -55,7 +56,15 @@ func (l *llamaCpp) UsesExternalModelManagement() bool {
 
 // Install implements inference.Backend.Install.
 func (l *llamaCpp) Install(_ context.Context, _ *http.Client) error {
-	// TODO: Add support for dynamic update.
+	// We don't currently support this backend on Windows or Linux. We'll likely
+	// never support it on Intel Macs.
+	if runtime.GOOS == "windows" || runtime.GOOS == "linux" {
+		return errors.New("not implemented")
+	} else if runtime.GOOS == "darwin" && runtime.GOARCH == "amd64" {
+		return errors.New("platform not supported")
+	}
+
+	// TODO: Add support for dynamic updates on supported platforms.
 	return nil
 }
 
