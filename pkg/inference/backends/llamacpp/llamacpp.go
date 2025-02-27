@@ -66,6 +66,11 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string) error {
 		return fmt.Errorf("failed to get model path: %w", err)
 	}
 
+	if err := os.RemoveAll(socket); err != nil {
+		log.Warnln("failed to remove socket file %s: %w", socket, err)
+		log.Warnln("llama.cpp may not be able to start")
+	}
+
 	binPath, err := paths.InstallPaths.BinResourcesPath()
 	if err != nil {
 		return fmt.Errorf("failed to get llama.cpp path: %w", err)
