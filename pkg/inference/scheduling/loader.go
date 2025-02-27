@@ -228,6 +228,7 @@ func (l *loader) run(ctx context.Context) {
 	// Defer disablement of loads and wait for complete eviction.
 	defer func() {
 		poll := make(chan struct{}, 1)
+		poll <- struct{}{} // Trigger an initial polling in case all are unused.
 		l.lock(context.Background())
 		l.loadsEnabled = false
 		l.broadcast()
@@ -332,8 +333,9 @@ func (l *loader) load(ctx context.Context, backendName, model string) (*runner, 
 			return l.slots[existing], nil
 		}
 
-		// If there's not sufficient memory, then try evicting unused runners.
-		if memory > l.availableMemory {
+		// If there's not sufficient memory or all slots are full, then try
+		// evicting unused runners.
+		if memory > l.availableMemory || len(r.runners) == len(r.slots) {
 			l.evict(false)
 		}
 
