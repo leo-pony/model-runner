@@ -75,7 +75,6 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string) error {
 		filepath.Join(binPath, "com.docker.llama-server"),
 		"--model", modelPath,
 	)
-	log.Warnln("ALOHA", filepath.Join(binPath, "..", "lib"))
 	llamaCppProcess.Env = append(os.Environ(),
 		"DYLD_LIBRARY_PATH="+filepath.Join(binPath, "..", "lib"),
 		"DD_INF_UDS="+socket,
