@@ -335,7 +335,7 @@ func (l *loader) load(ctx context.Context, backendName, model string) (*runner, 
 
 		// If there's not sufficient memory or all slots are full, then try
 		// evicting unused runners.
-		if memory > l.availableMemory || len(r.runners) == len(r.slots) {
+		if memory > l.availableMemory || len(l.runners) == len(l.slots) {
 			l.evict(false)
 		}
 
