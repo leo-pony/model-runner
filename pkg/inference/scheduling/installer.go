@@ -72,6 +72,10 @@ func newInstaller(
 
 // run is the main run loop for the installer.
 func (i *installer) run(ctx context.Context) {
+	if i.started.Load() {
+		return
+	}
+
 	// Mark the installer as having started.
 	i.started.Store(true)
 
