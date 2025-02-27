@@ -72,6 +72,8 @@ func newInstaller(
 
 // run is the main run loop for the installer.
 func (i *installer) run(ctx context.Context) {
+	// If the installer has already run once, then it will have attempted all
+	// installs, so we should abort early to avoid re-closing status channels.
 	if i.started.Load() {
 		return
 	}

@@ -339,9 +339,9 @@ func (l *loader) load(ctx context.Context, backendName, model string) (*runner, 
 			l.evict(false)
 		}
 
-		// If there's sufficient memory, then try to identify a free slot.
+		// If there's sufficient memory and a free slot, then find the slot.
 		slot := -1
-		if memory <= l.availableMemory {
+		if memory <= l.availableMemory && len(l.runners) < len(l.slots) {
 			for s, runner := range l.slots {
 				if runner == nil {
 					slot = s
