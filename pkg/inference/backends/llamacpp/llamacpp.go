@@ -90,7 +90,6 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string) error {
 		"--model", modelPath,
 	)
 	llamaCppProcess.Env = append(os.Environ(),
-		"DYLD_LIBRARY_PATH="+filepath.Join(binPath, "..", "lib"),
 		"DD_INF_UDS="+socket,
 	)
 	llamaCppProcess.Cancel = func() error {
