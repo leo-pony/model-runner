@@ -56,6 +56,8 @@ func NewManager(log logger.ComponentLogger, httpClient *http.Client) *Manager {
 	m.router.HandleFunc("DELETE /ml/models/{namespace}/{name}", m.handleDeleteModel)
 	m.router.HandleFunc("GET /ml/{backend}/v1/models", m.handleOpenAIGetModels)
 	m.router.HandleFunc("GET /ml/{backend}/v1/models/{namespace}/{name}", m.handleOpenAIGetModel)
+	m.router.HandleFunc("GET /ml/v1/models", m.handleOpenAIGetModels)
+	m.router.HandleFunc("GET /ml/v1/models/{namespace}/{name}", m.handleOpenAIGetModel)
 
 	// Populate the pull concurrency semaphore.
 	for i := 0; i < maximumConcurrentModelPulls; i++ {
@@ -133,7 +135,8 @@ func (m *Manager) handleDeleteModel(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "not implemented", http.StatusNotImplemented)
 }
 
-// handleOpenAIGetModels handles GET /ml/{backend}/v1/models requests.
+// handleOpenAIGetModels handles GET /ml/{backend}/v1/models and
+// GET /ml/v1/models requests.
 func (m *Manager) handleOpenAIGetModels(w http.ResponseWriter, r *http.Request) {
 	// Query models.
 	models, err := m.getModels("")
@@ -150,7 +153,7 @@ func (m *Manager) handleOpenAIGetModels(w http.ResponseWriter, r *http.Request) 
 }
 
 // handleOpenAIGetModel handles GET /ml/{backend}/v1/models/{namespace}/{name}
-// requests.
+// and GET /ml/v1/models/{namespace}/{name} requests.
 func (m *Manager) handleOpenAIGetModel(w http.ResponseWriter, r *http.Request) {
 	// Query the model.
 	model, err := m.GetModel(r.PathValue("namespace") + "/" + r.PathValue("name"))

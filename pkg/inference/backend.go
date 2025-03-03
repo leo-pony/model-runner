@@ -14,7 +14,7 @@ type Backend interface {
 	// path component in an HTTP request path and a Unix domain socket path. It
 	// should also be suitable for presenting to users (at least in logs). The
 	// package providing the backend implementation should also expose a
-	// variable called Name which matches the value returned by this method.
+	// constant called Name which matches the value returned by this method.
 	Name() string
 	// UsesExternalModelManagement should return true if the backend uses an
 	// external model management system and false if the backend uses the shared

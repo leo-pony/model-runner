@@ -23,6 +23,8 @@ type Scheduler struct {
 	log logger.ComponentLogger
 	// backends are the supported inference backends.
 	backends map[string]inference.Backend
+	// defaultBackend is the default inference backend. It may be nil.
+	defaultBackend inference.Backend
 	// modelManager is the shared model manager.
 	modelManager *models.Manager
 	// installer is the backend installer.
@@ -37,17 +39,19 @@ type Scheduler struct {
 func NewScheduler(
 	log logger.ComponentLogger,
 	backends map[string]inference.Backend,
+	defaultBackend inference.Backend,
 	modelManager *models.Manager,
 	httpClient *http.Client,
 ) *Scheduler {
 	// Create the scheduler.
 	s := &Scheduler{
-		log:          log,
-		backends:     backends,
-		modelManager: modelManager,
-		installer:    newInstaller(log, backends, httpClient),
-		loader:       newLoader(log, backends, modelManager),
-		router:       http.NewServeMux(),
+		log:            log,
+		backends:       backends,
+		defaultBackend: defaultBackend,
+		modelManager:   modelManager,
+		installer:      newInstaller(log, backends, httpClient),
+		loader:         newLoader(log, backends, modelManager),
+		router:         http.NewServeMux(),
 	}
 
 	// Register routes.
@@ -57,6 +61,9 @@ func NewScheduler(
 	s.router.HandleFunc("POST /ml/{backend}/v1/chat/completions", s.handleOpenAIInference)
 	s.router.HandleFunc("POST /ml/{backend}/v1/completions", s.handleOpenAIInference)
 	s.router.HandleFunc("POST /ml/{backend}/v1/embeddings", s.handleOpenAIInference)
+	s.router.HandleFunc("POST /ml/v1/chat/completions", s.handleOpenAIInference)
+	s.router.HandleFunc("POST /ml/v1/completions", s.handleOpenAIInference)
+	s.router.HandleFunc("POST /ml/v1/embeddings", s.handleOpenAIInference)
 
 	// Scheduler successfully initialized.
 	return s
@@ -91,8 +98,13 @@ func (s *Scheduler) Run(ctx context.Context) error {
 // - POST /ml/{backend}/v1/embeddings
 func (s *Scheduler) handleOpenAIInference(w http.ResponseWriter, r *http.Request) {
 	// Determine the requested backend and ensure that it's valid.
-	backend, ok := s.backends[r.PathValue("backend")]
-	if !ok {
+	var backend inference.Backend
+	if b := r.PathValue("backend"); b == "" {
+		backend = s.defaultBackend
+	} else {
+		backend = s.backends[b]
+	}
+	if backend == nil {
 		http.Error(w, ErrBackendNotFound.Error(), http.StatusNotFound)
 		return
 	}
