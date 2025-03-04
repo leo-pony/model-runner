@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/docker/model-distribution/pkg/distribution"
 	"github.com/docker/model-runner/pkg/logger"
 )
 
@@ -33,17 +34,20 @@ type Manager struct {
 	pullTokens chan struct{}
 	// router is the HTTP request router.
 	router *http.ServeMux
+	// distributionClient is the client for model distribution.
+	distributionClient *distribution.Client
 }
 
-// NewManager creates a new models manager.
-func NewManager(log logger.ComponentLogger, httpClient *http.Client) *Manager {
+// NewManager creates a new model's manager.
+func NewManager(log logger.ComponentLogger, httpClient *http.Client, distributionClient *distribution.Client) *Manager {
 	// Create the manager.
 	m := &Manager{
-		log:        log,
-		httpClient: httpClient,
-		cacheDir:   defaultCacheDir(),
-		pullTokens: make(chan struct{}, maximumConcurrentModelPulls),
-		router:     http.NewServeMux(),
+		log:                log,
+		httpClient:         httpClient,
+		cacheDir:           defaultCacheDir(),
+		pullTokens:         make(chan struct{}, maximumConcurrentModelPulls),
+		router:             http.NewServeMux(),
+		distributionClient: distributionClient,
 	}
 
 	// Register routes.
@@ -77,7 +81,7 @@ func (m *Manager) handleCreateModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Pull the model. In the future, we may support aditional operations here
+	// Pull the model. In the future, we may support additional operations here
 	// besides pulling (such as model building).
 	if err := m.PullModel(r.Context(), request.From); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -205,7 +209,7 @@ func (m *Manager) getModels(model string, getGGUFPath ...any) (ModelList, error)
 		}
 		modelID := strings.Join(parts, "/")
 
-		// Verify whether or not we're interested in this model.
+		// Verify whether we're interested in this model.
 		if model != "" && modelID != model {
 			continue
 		}
