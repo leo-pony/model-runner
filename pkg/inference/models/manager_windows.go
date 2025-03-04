@@ -5,11 +5,6 @@ import (
 	"errors"
 )
 
-// defaultCacheDir is unimplemented on Windows.
-func defaultCacheDir() string {
-	return ""
-}
-
 // PullModel is unimplemented on Windows.
 func (m *Manager) PullModel(ctx context.Context, model string) error {
 	// TODO: The Hugging Face Hub package that we're using doesn't build on

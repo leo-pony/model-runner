@@ -1,15 +1,10 @@
 package models
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/docker/model-distribution/pkg/distribution"
 	"github.com/docker/model-runner/pkg/logger"
@@ -27,8 +22,6 @@ type Manager struct {
 	log logger.ComponentLogger
 	// httpClient is the HTTP client to use for model pulls.
 	httpClient *http.Client
-	// cacheDir is the model storage directory.
-	cacheDir string
 	// pullTokens is a semaphore used to restrict the maximum number of
 	// concurrent pull requests.
 	pullTokens chan struct{}
@@ -44,7 +37,6 @@ func NewManager(log logger.ComponentLogger, httpClient *http.Client, distributio
 	m := &Manager{
 		log:                log,
 		httpClient:         httpClient,
-		cacheDir:           defaultCacheDir(),
 		pullTokens:         make(chan struct{}, maximumConcurrentModelPulls),
 		router:             http.NewServeMux(),
 		distributionClient: distributionClient,
@@ -186,80 +178,41 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // list containing only a specific model. If no models exist or the specific
 // model can't be found, then an empty (but non-nil) list is returned. Any error
 // it returns is suitable for writing back to the client.
-func (m *Manager) getModels(model string, getGGUFPath ...any) (ModelList, error) {
+func (m *Manager) getModels(model string) (ModelList, error) {
 	// Initialize the model list. We always want to return a non-nil list (even
 	// if it's empty) so that it can be encoded directly to JSON.
 	models := make(ModelList, 0)
 
-	// Iterate over model directories and build the model list.
-	dirs, err := os.ReadDir(m.cacheDir)
-	if err != nil {
-		return nil, fmt.Errorf("error while reading cache directory: %w", err)
-	}
-	for _, dir := range dirs {
-		// Verify that the entry is a model directory.
-		if !dir.IsDir() || !strings.HasPrefix(dir.Name(), "models--") {
-			continue
-		}
-
-		// Parse the model name.
-		parts := strings.Split(strings.TrimPrefix(dir.Name(), "models--"), "--")
-		if len(parts) < 2 {
-			continue
-		}
-		modelID := strings.Join(parts, "/")
-
-		// Verify whether we're interested in this model.
-		if model != "" && modelID != model {
-			continue
-		}
-
-		// Compute some sort of fixed globally unique ID for the model.
-		// TODO: Once we switch to Docker Hub-hosted models, this will be a
-		// content digest of some sort; for now we'll just digest the name.
-		modelGUID := fmt.Sprintf("%x", sha256.Sum256([]byte(modelID)))
-
-		// Query the model creation time.
-		dirInfo, err := dir.Info()
+	if model != "" {
+		model, err := m.distributionClient.GetModel(model)
 		if err != nil {
-			m.log.Warnln("Error while getting directory info:", err)
-			continue
+			return nil, fmt.Errorf("error while getting model: %w", err)
 		}
-		created := dirInfo.ModTime().Unix()
-
-		// List the model files.
-		ggufFiles := make([]string, 0)
-		if err := filepath.Walk(filepath.Join(m.cacheDir, dir.Name(), "snapshots"),
-			func(path string, info fs.FileInfo, err error) error {
-				if err != nil {
-					return err
-				}
-				if !info.IsDir() && strings.HasSuffix(info.Name(), ".gguf") {
-					if getGGUFPath != nil {
-						ggufFiles = append(ggufFiles, path)
-					} else {
-						ggufFiles = append(ggufFiles, info.Name())
-					}
-				}
-				return nil
-			}); err != nil {
-			m.log.Warnln("Error while walking snapshots directory:", err)
-			continue
-		}
-
-		// Record the model.
 		models = append(models, &Model{
-			ID:      modelGUID,
-			Tags:    []string{modelID},
-			Files:   ggufFiles,
-			Created: created,
+			ID:      model.ID,
+			Tags:    model.Tags,
+			Files:   model.Files,
+			Created: model.Created,
 		})
-		if model != "" && getGGUFPath != nil {
-			return models, nil
-		}
+		return models, nil
 	}
 
-	// Success.
+	// Get all models from the distribution client
+	available, err := m.distributionClient.ListModels()
+	if err != nil {
+		return nil, fmt.Errorf("error while listing models: %w", err)
+	}
+
+	// Convert distribution models to our model format
+	for _, current := range available {
+		models = append(models, &Model{
+			ID:      current.ID,
+			Tags:    current.Tags,
+			Files:   current.Files,
+			Created: current.Created,
+		})
+	}
+
 	return models, nil
 }
 
@@ -276,7 +229,7 @@ func (m *Manager) GetModel(model string) (*Model, error) {
 }
 
 func (m *Manager) GetModelPath(model string) (string, error) {
-	models, err := m.getModels(model, struct{}{})
+	models, err := m.getModels(model)
 	if err != nil {
 		return "", err
 	} else if len(models) == 0 {
