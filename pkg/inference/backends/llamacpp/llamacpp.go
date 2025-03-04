@@ -71,6 +71,7 @@ func (l *llamaCpp) Install(_ context.Context, _ *http.Client) error {
 // Run implements inference.Backend.Run.
 func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference.BackendMode) error {
 	modelPath, err := l.modelManager.GetModelPath(model)
+	log.Infof("Model path: %s", modelPath)
 	if err != nil {
 		return fmt.Errorf("failed to get model path: %w", err)
 	}
