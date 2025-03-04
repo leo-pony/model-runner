@@ -140,22 +140,15 @@ func (s *Scheduler) handleOpenAIInference(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Check if the model manager already has the requested model available. If
-	// not, perform a pull operation before scheduling the request.
-	//
-	// TODO: We may wish to make this behavior configurable, with an option to
-	// instead return a 404 if the model is unavailable.
+	// Check if the shared model manager has the requested model available.
 	if !backend.UsesExternalModelManagement() {
 		if _, err := s.modelManager.GetModel(request.Model); err != nil {
 			if errors.Is(err, models.ErrModelNotFound) {
-				if err = s.modelManager.PullModel(r.Context(), request.Model); err != nil {
-					http.Error(w, fmt.Errorf("unable to pull model: %w", err).Error(), http.StatusInternalServerError)
-					return
-				}
+				http.Error(w, err.Error(), http.StatusNotFound)
 			} else {
 				http.Error(w, "model unavailable", http.StatusInternalServerError)
-				return
 			}
+			return
 		}
 	}
 
