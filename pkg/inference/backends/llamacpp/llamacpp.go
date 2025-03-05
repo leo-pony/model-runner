@@ -69,7 +69,7 @@ func (l *llamaCpp) Install(_ context.Context, _ *http.Client) error {
 }
 
 // Run implements inference.Backend.Run.
-func (l *llamaCpp) Run(ctx context.Context, socket, model string) error {
+func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference.BackendMode) error {
 	modelPath, err := l.modelManager.GetModelPath(model)
 	if err != nil {
 		return fmt.Errorf("failed to get model path: %w", err)
@@ -84,10 +84,14 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get llama.cpp path: %w", err)
 	}
+	llamaCppArgs := []string{"--model", modelPath}
+	if mode == inference.BackendModeEmbedding {
+		llamaCppArgs = append(llamaCppArgs, "--embeddings")
+	}
 	llamaCppProcess := exec.CommandContext(
 		ctx,
 		filepath.Join(binPath, "com.docker.llama-server"),
-		"--model", modelPath,
+		llamaCppArgs...,
 	)
 	llamaCppProcess.Env = append(os.Environ(),
 		"DD_INF_UDS="+socket,

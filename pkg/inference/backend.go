@@ -5,6 +5,30 @@ import (
 	"net/http"
 )
 
+// BackendMode encodes the mode in which a backend should operate.
+type BackendMode uint8
+
+const (
+	// BackendModeCompletion indicates that the backend should run in chat
+	// completion mode.
+	BackendModeCompletion BackendMode = iota
+	// BackendModeEmbedding indicates that the backend should run in embedding
+	// mode.
+	BackendModeEmbedding
+)
+
+// String implements Stringer.String for BackendMode.
+func (m BackendMode) String() string {
+	switch m {
+	case BackendModeCompletion:
+		return "completion"
+	case BackendModeEmbedding:
+		return "embedding"
+	default:
+		return "unknown"
+	}
+}
+
 // Backend is the interface implemented by inference engine backends. Backend
 // implementations need not be safe for concurrent invocation of the following
 // methods, though their underlying server implementations do need to support
@@ -42,5 +66,5 @@ type Backend interface {
 	// to be loaded. Backends should not load multiple models at once and should
 	// instead load only the specified model. Backends should still respond to
 	// OpenAI API requests for other models with a 421 error code.
-	Run(ctx context.Context, socket, model string) error
+	Run(ctx context.Context, socket, model string, mode BackendMode) error
 }

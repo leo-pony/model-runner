@@ -37,6 +37,8 @@ type runnerKey struct {
 	backend string
 	// model is the model associated with the runner.
 	model string
+	// mode is the operation mode associated with the runner.
+	mode inference.BackendMode
 }
 
 // loader manages the loading and unloading of backend runners. It regulates
@@ -161,7 +163,9 @@ func (l *loader) evict(idleOnly bool) int {
 		unused := l.references[slot] == 0
 		idle := unused && now.Sub(l.timestamps[slot]) > runnerIdleTimeout
 		if unused && (!idleOnly || idle) {
-			l.log.Infof("Evicting %s backend runner with model %s", r.backend, r.model)
+			l.log.Infof("Evicting %s backend runner with model %s in %s mode",
+				r.backend, r.model, r.mode,
+			)
 			l.slots[slot].terminate()
 			l.slots[slot] = nil
 			l.availableMemory += l.allocations[slot]
@@ -283,7 +287,7 @@ func (l *loader) run(ctx context.Context) {
 // load allocates a runner using the specified backend and model. If allocated,
 // it should be released by the caller using the release mechanism (once the
 // runner is no longer needed).
-func (l *loader) load(ctx context.Context, backendName, model string) (*runner, error) {
+func (l *loader) load(ctx context.Context, backendName, model string, mode inference.BackendMode) (*runner, error) {
 	// Grab the backend.
 	backend, ok := l.backends[backendName]
 	if !ok {
@@ -326,7 +330,7 @@ func (l *loader) load(ctx context.Context, backendName, model string) (*runner, 
 		}
 
 		// See if we can satisfy the request with an existing runner.
-		existing, ok := l.runners[runnerKey{backendName, model}]
+		existing, ok := l.runners[runnerKey{backendName, model, mode}]
 		if ok {
 			l.references[existing] += 1
 			l.timestamps[existing] = time.Time{}
@@ -353,11 +357,11 @@ func (l *loader) load(ctx context.Context, backendName, model string) (*runner, 
 		// If we've identified a slot, then we're ready to start a runner.
 		if slot >= 0 {
 			// Create the runner.
-			l.log.Infof("Loading %s backend runner with model %s", backendName, model)
-			runner, err := run(l.log, backend, model, slot)
+			l.log.Infof("Loading %s backend runner with model %s in %s mode", backendName, model, mode)
+			runner, err := run(l.log, backend, model, mode, slot)
 			if err != nil {
-				l.log.Warnf("Unable to start %s backend runner with model %s: %v",
-					backendName, model, err,
+				l.log.Warnf("Unable to start %s backend runner with model %s in %s mode: %v",
+					backendName, model, mode, err,
 				)
 				return nil, fmt.Errorf("unable to start runner: %w", err)
 			}
@@ -370,15 +374,15 @@ func (l *loader) load(ctx context.Context, backendName, model string) (*runner, 
 			// deduplication of runners and keep slot / memory reservations.
 			if err := runner.wait(ctx); err != nil {
 				runner.terminate()
-				l.log.Warnf("Initialization for %s backend runner with model %s failed: %v",
-					backendName, model, err,
+				l.log.Warnf("Initialization for %s backend runner with model %s in %s mode failed: %v",
+					backendName, model, mode, err,
 				)
 				return nil, fmt.Errorf("error waiting for runner to be ready: %w", err)
 			}
 
 			// Perform registration and return the runner.
 			l.availableMemory -= memory
-			l.runners[runnerKey{backendName, model}] = slot
+			l.runners[runnerKey{backendName, model, mode}] = slot
 			l.slots[slot] = runner
 			l.references[slot] = 1
 			l.allocations[slot] = memory
@@ -406,7 +410,7 @@ func (l *loader) release(runner *runner) {
 	defer l.unlock()
 
 	// Determine the runner's slot.
-	slot := l.runners[runnerKey{runner.backend.Name(), runner.model}]
+	slot := l.runners[runnerKey{runner.backend.Name(), runner.model, runner.mode}]
 
 	// Decrement the runner's reference count.
 	l.references[slot] -= 1

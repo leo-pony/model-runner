@@ -141,6 +141,13 @@ func (s *Scheduler) handleOpenAIInference(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Determine the backend operation mode.
+	backendMode, ok := backendModeForRequest(r.URL.Path)
+	if !ok {
+		http.Error(w, "unknown request path", http.StatusInternalServerError)
+		return
+	}
+
 	// Decode the model specification portion of the request body.
 	var request OpenAIInferenceRequest
 	if err := json.Unmarshal(body, &request); err != nil {
@@ -165,7 +172,7 @@ func (s *Scheduler) handleOpenAIInference(w http.ResponseWriter, r *http.Request
 	}
 
 	// Request a runner to execute the request and defer its release.
-	runner, err := s.loader.load(r.Context(), backend.Name(), request.Model)
+	runner, err := s.loader.load(r.Context(), backend.Name(), request.Model, backendMode)
 	if err != nil {
 		http.Error(w, fmt.Errorf("unable to load runner: %w", err).Error(), http.StatusInternalServerError)
 		return

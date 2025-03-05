@@ -39,6 +39,8 @@ type runner struct {
 	backend inference.Backend
 	// model is the associated model.
 	model string
+	// mode is the backend operation mode.
+	mode inference.BackendMode
 	// cancel terminates the runner's backend run loop.
 	cancel context.CancelFunc
 	// done is closed when the runner's backend run loop exits.
@@ -58,6 +60,7 @@ func run(
 	log logger.ComponentLogger,
 	backend inference.Backend,
 	model string,
+	mode inference.BackendMode,
 	slot int,
 ) (*runner, error) {
 	// Create a dialer / transport that target backend on the specified slot.
@@ -106,7 +109,7 @@ func run(
 
 	// Start the backend run loop.
 	go func() {
-		if err := backend.Run(runCtx, socket, model); err != nil {
+		if err := backend.Run(runCtx, socket, model, mode); err != nil {
 			log.Warnf("Backend %s running model %s exited with error: %v",
 				backend.Name(), model, err,
 			)
@@ -119,6 +122,7 @@ func run(
 		log:       log,
 		backend:   backend,
 		model:     model,
+		mode:      mode,
 		cancel:    runCancel,
 		done:      runDone,
 		transport: transport,
