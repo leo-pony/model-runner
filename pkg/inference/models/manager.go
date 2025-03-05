@@ -104,7 +104,7 @@ func (m *Manager) handleGetModel(w http.ResponseWriter, r *http.Request) {
 	// Query the model.
 	model, err := m.GetModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
 	if err != nil {
-		if errors.Is(err, ErrModelNotFound) {
+		if errors.Is(err, ErrModelNotFound) || errors.Is(err, distribution.ErrModelNotFound) { //TODO we should fix different types
 			http.Error(w, err.Error(), http.StatusNotFound)
 		} else {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -193,7 +193,7 @@ func (m *Manager) getModels(ref string) (ModelList, error) {
 	if ref != "" {
 		model, err := m.distributionClient.GetModel(ref)
 		if err != nil {
-			return nil, fmt.Errorf("error while getting model: %w", err)
+			return nil, err
 		}
 		models = append(models, &Model{
 			ID:      model.ID,
