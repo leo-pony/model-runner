@@ -104,7 +104,7 @@ func (m *Manager) handleGetModel(w http.ResponseWriter, r *http.Request) {
 	// Query the model.
 	model, err := m.GetModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
 	if err != nil {
-		if errors.Is(err, ErrModelNotFound) || errors.Is(err, distribution.ErrModelNotFound) { //TODO we should fix different types
+		if errors.Is(err, ErrModelNotFound) || errors.Is(err, distribution.ErrModelNotFound) { // TODO we should fix different types
 			http.Error(w, err.Error(), http.StatusNotFound)
 		} else {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
