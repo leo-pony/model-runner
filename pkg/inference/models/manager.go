@@ -102,7 +102,7 @@ func (m *Manager) handleGetModels(w http.ResponseWriter, r *http.Request) {
 // handleGetModel handles GET /ml/models/{namespace}/{name}/json requests.
 func (m *Manager) handleGetModel(w http.ResponseWriter, r *http.Request) {
 	// Query the model.
-	model, err := m.getModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
+	model, err := m.GetModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, ErrModelNotFound) || errors.Is(err, distribution.ErrModelNotFound) { // TODO we should fix different types
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -159,7 +159,7 @@ func (m *Manager) handleOpenAIGetModels(w http.ResponseWriter, r *http.Request) 
 // and GET /ml/v1/models/{namespace}/{name} requests.
 func (m *Manager) handleOpenAIGetModel(w http.ResponseWriter, r *http.Request) {
 	// Query the model.
-	model, err := m.getModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
+	model, err := m.GetModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, ErrModelNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -206,8 +206,8 @@ func (m *Manager) getModels() (ModelList, error) {
 	return models, nil
 }
 
-// getModel returns a single model.
-func (m *Manager) getModel(ref string) (*Model, error) {
+// GetModel returns a single model.
+func (m *Manager) GetModel(ref string) (*Model, error) {
 	model, err := m.distributionClient.GetModel(ref)
 	if err != nil {
 		return nil, err
@@ -222,7 +222,7 @@ func (m *Manager) getModel(ref string) (*Model, error) {
 
 // GetModelPath returns the path to a model's files.
 func (m *Manager) GetModelPath(ref string) (string, error) {
-	model, err := m.getModel(ref)
+	model, err := m.GetModel(ref)
 	if err != nil {
 		return "", err
 	}
