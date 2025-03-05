@@ -86,7 +86,7 @@ func (m *Manager) handleCreateModel(w http.ResponseWriter, r *http.Request) {
 // handleGetModels handles GET /ml/models/json requests.
 func (m *Manager) handleGetModels(w http.ResponseWriter, r *http.Request) {
 	// Query models.
-	models, err := m.getModels("")
+	models, err := m.getModels()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -102,7 +102,7 @@ func (m *Manager) handleGetModels(w http.ResponseWriter, r *http.Request) {
 // handleGetModel handles GET /ml/models/{namespace}/{name}/json requests.
 func (m *Manager) handleGetModel(w http.ResponseWriter, r *http.Request) {
 	// Query the model.
-	model, err := m.GetModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
+	model, err := m.getModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, ErrModelNotFound) || errors.Is(err, distribution.ErrModelNotFound) { // TODO we should fix different types
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -142,7 +142,7 @@ func (m *Manager) handleDeleteModel(w http.ResponseWriter, r *http.Request) {
 // GET /ml/v1/models requests.
 func (m *Manager) handleOpenAIGetModels(w http.ResponseWriter, r *http.Request) {
 	// Query models.
-	models, err := m.getModels("")
+	models, err := m.getModels()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -159,7 +159,7 @@ func (m *Manager) handleOpenAIGetModels(w http.ResponseWriter, r *http.Request) 
 // and GET /ml/v1/models/{namespace}/{name} requests.
 func (m *Manager) handleOpenAIGetModel(w http.ResponseWriter, r *http.Request) {
 	// Query the model.
-	model, err := m.GetModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
+	model, err := m.getModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, ErrModelNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -181,28 +181,11 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	m.router.ServeHTTP(w, r)
 }
 
-// getModels returns a list of all models or (if ref is a non-empty string) a
-// list containing only a specific model. If no models exist or the specific
-// model can't be found, then an empty (but non-nil) list is returned. Any error
-// it returns is suitable for writing back to the client.
-func (m *Manager) getModels(ref string) (ModelList, error) {
+// getModels returns a list of all models.
+func (m *Manager) getModels() (ModelList, error) {
 	// Initialize the model list. We always want to return a non-nil list (even
 	// if it's empty) so that it can be encoded directly to JSON.
 	models := make(ModelList, 0)
-
-	if ref != "" {
-		model, err := m.distributionClient.GetModel(ref)
-		if err != nil {
-			return nil, err
-		}
-		models = append(models, &Model{
-			ID:      model.ID,
-			Tags:    model.Tags,
-			Files:   model.Files,
-			Created: model.Created,
-		})
-		return models, nil
-	}
 
 	// Get all models from the distribution client
 	available, err := m.distributionClient.ListModels()
@@ -223,21 +206,23 @@ func (m *Manager) getModels(ref string) (ModelList, error) {
 	return models, nil
 }
 
-// GetModel looks up and returns a single model. It returns ErrModelNotFound if
-// the model could not be located.
-func (m *Manager) GetModel(ref string) (*Model, error) {
-	models, err := m.getModels(ref)
+// getModel returns a single model.
+func (m *Manager) getModel(ref string) (*Model, error) {
+	model, err := m.distributionClient.GetModel(ref)
 	if err != nil {
 		return nil, err
 	}
-	if len(models) == 0 {
-		return nil, ErrModelNotFound
-	}
-	return models[0], nil
+	return &Model{
+		ID:      model.ID,
+		Tags:    model.Tags,
+		Files:   model.Files,
+		Created: model.Created,
+	}, nil
 }
 
+// GetModelPath returns the path to a model's files.
 func (m *Manager) GetModelPath(ref string) (string, error) {
-	model, err := m.GetModel(ref)
+	model, err := m.getModel(ref)
 	if err != nil {
 		return "", err
 	}
