@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"net/http"
 	"strings"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/docker/model-distribution/pkg/types"
 	"github.com/docker/model-runner/pkg/logger"
 	"github.com/docker/model-runner/pkg/paths"
-	"html"
 )
 
 const (
