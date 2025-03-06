@@ -8,12 +8,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/docker/model-distribution/pkg/types"
-
-	"github.com/docker/model-runner/pkg/paths"
-
 	"github.com/docker/model-distribution/pkg/distribution"
+	"github.com/docker/model-distribution/pkg/types"
 	"github.com/docker/model-runner/pkg/logger"
+	"github.com/docker/model-runner/pkg/paths"
 )
 
 const (
