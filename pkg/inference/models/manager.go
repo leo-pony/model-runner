@@ -237,6 +237,19 @@ func (m *Manager) GetModelPath(ref string) (string, error) {
 	return fmt.Sprintf("%s/blobs/%s/%s", m.distributionClient.GetStorePath(), parts[0], parts[1]), nil
 }
 
+// progressWriter implements io.Writer to log pull progress
+type progressWriter struct {
+	log logger.ComponentLogger
+}
+
+// Write implements io.Writer.Write
+func (w *progressWriter) Write(p []byte) (n int, err error) {
+	if len(p) > 0 {
+		w.log.Infoln(string(p))
+	}
+	return len(p), nil
+}
+
 // PullModel pulls a model to local storage. Any error it returns is suitable
 // for writing back to the client.
 func (m *Manager) PullModel(ctx context.Context, model string) error {
@@ -252,7 +265,7 @@ func (m *Manager) PullModel(ctx context.Context, model string) error {
 
 	// Pull the model using the Docker model distribution client
 	m.log.Infoln("Pulling model:", model)
-	if _, err := m.distributionClient.PullModel(ctx, model); err != nil {
+	if _, err := m.distributionClient.PullModel(ctx, model, &progressWriter{log: m.log}); err != nil {
 		return fmt.Errorf("error while pulling model: %w", err)
 	}
 
