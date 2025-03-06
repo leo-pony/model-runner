@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -234,4 +235,26 @@ func (m *Manager) GetModelPath(ref string) (string, error) {
 		return "", fmt.Errorf("invalid blob format: %s", blobName)
 	}
 	return fmt.Sprintf("%s/blobs/%s/%s", m.distributionClient.GetStorePath(), parts[0], parts[1]), nil
+}
+
+// PullModel pulls a model to local storage. Any error it returns is suitable
+// for writing back to the client.
+func (m *Manager) PullModel(ctx context.Context, model string) error {
+	// Restrict model pull concurrency.
+	select {
+	case <-m.pullTokens:
+	case <-ctx.Done():
+		return context.Canceled
+	}
+	defer func() {
+		m.pullTokens <- struct{}{}
+	}()
+
+	// Pull the model using the Docker model distribution client
+	m.log.Infoln("Pulling model:", model)
+	if _, err := m.distributionClient.PullModel(ctx, model); err != nil {
+		return fmt.Errorf("error while pulling model: %w", err)
+	}
+
+	return nil
 }
