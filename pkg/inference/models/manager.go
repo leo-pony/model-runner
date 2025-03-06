@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/docker/model-runner/pkg/paths"
+
 	"github.com/docker/model-distribution/pkg/distribution"
 	"github.com/docker/model-runner/pkg/logger"
 )
@@ -34,7 +36,15 @@ type Manager struct {
 }
 
 // NewManager creates a new model's manager.
-func NewManager(log logger.ComponentLogger, httpClient *http.Client, distributionClient *distribution.Client) *Manager {
+func NewManager(log logger.ComponentLogger, httpClient *http.Client) *Manager {
+	// Create the distribution client
+	distributionClient, err := distribution.NewClient(
+		distribution.WithStoreRootPath(paths.DockerHome("models")),
+		distribution.WithLogger(log.WithField("component", "model-distribution")))
+	if err != nil {
+		log.Errorf("Failed to create distribution client: %v", err)
+		// Continue without distribution client
+	}
 	// Create the manager.
 	m := &Manager{
 		log:                log,
@@ -68,6 +78,11 @@ func NewManager(log logger.ComponentLogger, httpClient *http.Client, distributio
 
 // handleCreateModel handles POST /ml/models/create requests.
 func (m *Manager) handleCreateModel(w http.ResponseWriter, r *http.Request) {
+	if m.distributionClient == nil {
+		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
 	// Decode the request.
 	var request ModelCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -86,6 +101,11 @@ func (m *Manager) handleCreateModel(w http.ResponseWriter, r *http.Request) {
 
 // handleGetModels handles GET /ml/models/json requests.
 func (m *Manager) handleGetModels(w http.ResponseWriter, r *http.Request) {
+	if m.distributionClient == nil {
+		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
 	// Query models.
 	models, err := m.getModels()
 	if err != nil {
@@ -102,6 +122,11 @@ func (m *Manager) handleGetModels(w http.ResponseWriter, r *http.Request) {
 
 // handleGetModel handles GET /ml/models/{namespace}/{name}/json requests.
 func (m *Manager) handleGetModel(w http.ResponseWriter, r *http.Request) {
+	if m.distributionClient == nil {
+		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
 	// Query the model.
 	model, err := m.GetModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
 	if err != nil {
@@ -122,6 +147,11 @@ func (m *Manager) handleGetModel(w http.ResponseWriter, r *http.Request) {
 
 // handleDeleteModel handles DELETE /ml/models/{namespace}/{name} requests.
 func (m *Manager) handleDeleteModel(w http.ResponseWriter, r *http.Request) {
+	if m.distributionClient == nil {
+		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
 	// TODO: We probably want the manager to have a lock / unlock mechanism for
 	// models so that active runners can retain / release a model, analogous to
 	// a container blocking the release of an image. However, unlike containers,
@@ -142,6 +172,11 @@ func (m *Manager) handleDeleteModel(w http.ResponseWriter, r *http.Request) {
 // handleOpenAIGetModels handles GET /ml/{backend}/v1/models and
 // GET /ml/v1/models requests.
 func (m *Manager) handleOpenAIGetModels(w http.ResponseWriter, r *http.Request) {
+	if m.distributionClient == nil {
+		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
 	// Query models.
 	models, err := m.getModels()
 	if err != nil {
@@ -159,6 +194,11 @@ func (m *Manager) handleOpenAIGetModels(w http.ResponseWriter, r *http.Request) 
 // handleOpenAIGetModel handles GET /ml/{backend}/v1/models/{namespace}/{name}
 // and GET /ml/v1/models/{namespace}/{name} requests.
 func (m *Manager) handleOpenAIGetModel(w http.ResponseWriter, r *http.Request) {
+	if m.distributionClient == nil {
+		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
 	// Query the model.
 	model, err := m.GetModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
 	if err != nil {
