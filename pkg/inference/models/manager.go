@@ -94,7 +94,7 @@ func (m *Manager) handleCreateModel(w http.ResponseWriter, r *http.Request) {
 
 	// Pull the model. In the future, we may support additional operations here
 	// besides pulling (such as model building).
-	if err := m.PullModel(r.Context(), request.From); err != nil {
+	if err := m.PullModel(r.Context(), request.From, w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -265,22 +265,9 @@ func (m *Manager) GetModelPath(ref string) (string, error) {
 	return fmt.Sprintf("%s/blobs/%s/%s", m.distributionClient.GetStorePath(), parts[0], parts[1]), nil
 }
 
-// progressWriter implements io.Writer to log pull progress
-type progressWriter struct {
-	log logger.ComponentLogger
-}
-
-// Write implements io.Writer.Write
-func (w *progressWriter) Write(p []byte) (n int, err error) {
-	if len(p) > 0 {
-		w.log.Infoln(string(p))
-	}
-	return len(p), nil
-}
-
 // PullModel pulls a model to local storage. Any error it returns is suitable
 // for writing back to the client.
-func (m *Manager) PullModel(ctx context.Context, model string) error {
+func (m *Manager) PullModel(ctx context.Context, model string, w http.ResponseWriter) error {
 	// Restrict model pull concurrency.
 	select {
 	case <-m.pullTokens:
@@ -291,11 +278,46 @@ func (m *Manager) PullModel(ctx context.Context, model string) error {
 		m.pullTokens <- struct{}{}
 	}()
 
+	// Set up response headers for streaming
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Transfer-Encoding", "chunked")
+
+	// Create a flusher to ensure chunks are sent immediately
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		return fmt.Errorf("streaming not supported")
+	}
+
+	// Create a progress writer that writes to the response
+	progressWriter := &progressResponseWriter{
+		writer:  w,
+		flusher: flusher,
+	}
+
 	// Pull the model using the Docker model distribution client
 	m.log.Infoln("Pulling model:", model)
-	if _, err := m.distributionClient.PullModel(ctx, model, &progressWriter{log: m.log}); err != nil {
+	if _, err := m.distributionClient.PullModel(ctx, model, progressWriter); err != nil {
 		return fmt.Errorf("error while pulling model: %w", err)
 	}
 
 	return nil
+}
+
+// progressResponseWriter implements io.Writer to write progress updates to the HTTP response
+type progressResponseWriter struct {
+	writer  http.ResponseWriter
+	flusher http.Flusher
+}
+
+func (w *progressResponseWriter) Write(p []byte) (n int, err error) {
+	// Write the data as a Server-Sent Event
+	_, err = fmt.Fprintf(w.writer, "%s", strings.TrimSpace(string(p)))
+	if err != nil {
+		return 0, err
+	}
+	// Flush the response to ensure the chunk is sent immediately
+	w.flusher.Flush()
+	return len(p), nil
 }

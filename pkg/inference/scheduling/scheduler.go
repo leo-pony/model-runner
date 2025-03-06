@@ -6,15 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/docker/model-distribution/pkg/distribution"
 	"io"
 	"net/http"
 
-	"golang.org/x/sync/errgroup"
-
+	"github.com/docker/model-distribution/pkg/distribution"
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/inference/models"
 	"github.com/docker/model-runner/pkg/logger"
+	"golang.org/x/sync/errgroup"
 )
 
 // Scheduler is used to coordinate inference scheduling across multiple backends
