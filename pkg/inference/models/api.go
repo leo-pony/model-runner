@@ -1,5 +1,7 @@
 package models
 
+import "github.com/docker/model-distribution/pkg/types"
+
 // ModelCreateRequest represents a model create request. It is designed to
 // follow Docker Engine API conventions, most closely following the request
 // associated with POST /images/create. At the moment is only designed to
@@ -10,22 +12,8 @@ type ModelCreateRequest struct {
 	From string `json:"from"`
 }
 
-// Model represents a locally stored model. It is designed to follow Docker
-// Engine API conventions, most closely following the image model, though the
-// casing and typing of its fields have been made more idiomatic.
-type Model struct {
-	// ID is the globally unique model identifier.
-	ID string `json:"id"`
-	// Tags are the list of tags associated with the model.
-	Tags []string `json:"tags"`
-	// Files are the GGUF files associated with the model.
-	Files []string `json:"files"`
-	// Created is the Unix epoch timestamp corresponding to the model creation.
-	Created int64 `json:"created"`
-}
-
-// Model converts the model to its OpenAI API representation.
-func (m *Model) toOpenAI() *OpenAIModel {
+// ToOpenAI converts a types.Model to its OpenAI API representation.
+func ToOpenAI(m *types.Model) *OpenAIModel {
 	return &OpenAIModel{
 		ID:      m.Tags[0],
 		Object:  "model",
@@ -35,15 +23,15 @@ func (m *Model) toOpenAI() *OpenAIModel {
 }
 
 // ModelList represents a list of models.
-type ModelList []*Model
+type ModelList []*types.Model
 
-// Model converts the model to its OpenAI API representation. This method never
+// ToOpenAI converts the model list to its OpenAI API representation. This function never
 // returns a nil slice (though it may return an empty slice).
 func (l ModelList) toOpenAI() *OpenAIModelList {
 	// Convert the constituent models.
 	models := make([]*OpenAIModel, len(l))
 	for m, model := range l {
-		models[m] = model.toOpenAI()
+		models[m] = ToOpenAI(model)
 	}
 
 	// Create the OpenAI model list.

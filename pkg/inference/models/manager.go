@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/docker/model-distribution/pkg/types"
+
 	"github.com/docker/model-runner/pkg/paths"
 
 	"github.com/docker/model-distribution/pkg/distribution"
@@ -130,7 +132,7 @@ func (m *Manager) handleGetModel(w http.ResponseWriter, r *http.Request) {
 	// Query the model.
 	model, err := m.GetModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
 	if err != nil {
-		if errors.Is(err, ErrModelNotFound) || errors.Is(err, distribution.ErrModelNotFound) { // TODO we should fix different types
+		if errors.Is(err, distribution.ErrModelNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 		} else {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -202,7 +204,7 @@ func (m *Manager) handleOpenAIGetModel(w http.ResponseWriter, r *http.Request) {
 	// Query the model.
 	model, err := m.GetModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
 	if err != nil {
-		if errors.Is(err, ErrModelNotFound) {
+		if errors.Is(err, distribution.ErrModelNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 		} else {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -212,7 +214,7 @@ func (m *Manager) handleOpenAIGetModel(w http.ResponseWriter, r *http.Request) {
 
 	// Write the response.
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(model.toOpenAI()); err != nil {
+	if err := json.NewEncoder(w).Encode(ToOpenAI(model)); err != nil {
 		m.log.Warnln("Error while encoding OpenAI model response:", err)
 	}
 }
@@ -236,29 +238,15 @@ func (m *Manager) getModels() (ModelList, error) {
 
 	// Convert distribution models to our model format
 	for _, current := range available {
-		models = append(models, &Model{
-			ID:      current.ID,
-			Tags:    current.Tags,
-			Files:   current.Files,
-			Created: current.Created,
-		})
+		models = append(models, current)
 	}
 
 	return models, nil
 }
 
 // GetModel returns a single model.
-func (m *Manager) GetModel(ref string) (*Model, error) {
-	model, err := m.distributionClient.GetModel(ref)
-	if err != nil {
-		return nil, err
-	}
-	return &Model{
-		ID:      model.ID,
-		Tags:    model.Tags,
-		Files:   model.Files,
-		Created: model.Created,
-	}, nil
+func (m *Manager) GetModel(ref string) (*types.Model, error) {
+	return m.distributionClient.GetModel(ref)
 }
 
 // GetModelPath returns the path to a model's files.
