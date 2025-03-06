@@ -12,6 +12,7 @@ import (
 	"github.com/docker/model-distribution/pkg/types"
 	"github.com/docker/model-runner/pkg/logger"
 	"github.com/docker/model-runner/pkg/paths"
+	"html"
 )
 
 const (
@@ -311,7 +312,8 @@ type progressResponseWriter struct {
 
 func (w *progressResponseWriter) Write(p []byte) (n int, err error) {
 	// Write the data as a Server-Sent Event
-	_, err = fmt.Fprintf(w.writer, "%s", strings.TrimSpace(string(p)))
+	escapedData := html.EscapeString(strings.TrimSpace(string(p)))
+	_, err = fmt.Fprintf(w.writer, "%s", escapedData)
 	if err != nil {
 		return 0, err
 	}
