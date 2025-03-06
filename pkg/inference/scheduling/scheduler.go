@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/docker/model-distribution/pkg/distribution"
 	"io"
 	"net/http"
 
@@ -162,7 +163,7 @@ func (s *Scheduler) handleOpenAIInference(w http.ResponseWriter, r *http.Request
 	// Check if the shared model manager has the requested model available.
 	if !backend.UsesExternalModelManagement() {
 		if _, err := s.modelManager.GetModel(request.Model); err != nil {
-			if errors.Is(err, models.ErrModelNotFound) {
+			if errors.Is(err, distribution.ErrModelNotFound) {
 				http.Error(w, err.Error(), http.StatusNotFound)
 			} else {
 				http.Error(w, "model unavailable", http.StatusInternalServerError)
