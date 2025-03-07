@@ -310,13 +310,12 @@ type progressResponseWriter struct {
 }
 
 func (w *progressResponseWriter) Write(p []byte) (n int, err error) {
-	// Write the data as a Server-Sent Event
-	escapedData := html.EscapeString(strings.TrimSpace(string(p)))
-	_, err = fmt.Fprintf(w.writer, "%s", escapedData)
+	escapedData := html.EscapeString(string(p))
+	n, err = w.writer.Write([]byte(escapedData))
 	if err != nil {
 		return 0, err
 	}
 	// Flush the response to ensure the chunk is sent immediately
 	w.flusher.Flush()
-	return len(p), nil
+	return n, nil
 }
