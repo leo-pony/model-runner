@@ -13,6 +13,7 @@ import (
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/inference/models"
 	"github.com/docker/model-runner/pkg/logger"
+	"github.com/docker/model-runner/pkg/paths"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -58,12 +59,12 @@ func NewScheduler(
 	s.router.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 	})
-	s.router.HandleFunc("POST /engines/{backend}/v1/chat/completions", s.handleOpenAIInference)
-	s.router.HandleFunc("POST /engines/{backend}/v1/completions", s.handleOpenAIInference)
-	s.router.HandleFunc("POST /engines/{backend}/v1/embeddings", s.handleOpenAIInference)
-	s.router.HandleFunc("POST /engines/v1/chat/completions", s.handleOpenAIInference)
-	s.router.HandleFunc("POST /engines/v1/completions", s.handleOpenAIInference)
-	s.router.HandleFunc("POST /engines/v1/embeddings", s.handleOpenAIInference)
+	s.router.HandleFunc("POST "+paths.InferencePrefix+"/{backend}/v1/chat/completions", s.handleOpenAIInference)
+	s.router.HandleFunc("POST "+paths.InferencePrefix+"/{backend}/v1/completions", s.handleOpenAIInference)
+	s.router.HandleFunc("POST "+paths.InferencePrefix+"/{backend}/v1/embeddings", s.handleOpenAIInference)
+	s.router.HandleFunc("POST "+paths.InferencePrefix+"/v1/chat/completions", s.handleOpenAIInference)
+	s.router.HandleFunc("POST "+paths.InferencePrefix+"/v1/completions", s.handleOpenAIInference)
+	s.router.HandleFunc("POST "+paths.InferencePrefix+"/v1/embeddings", s.handleOpenAIInference)
 
 	// Scheduler successfully initialized.
 	return s
@@ -93,9 +94,9 @@ func (s *Scheduler) Run(ctx context.Context) error {
 
 // handleOpenAIInference handles scheduling and responding to OpenAI inference
 // requests, including:
-// - POST /engines/{backend}/v1/chat/completions
-// - POST /engines/{backend}/v1/completions
-// - POST /engines/{backend}/v1/embeddings
+// - POST <inference-prefix>/{backend}/v1/chat/completions
+// - POST <inference-prefix>/{backend}/v1/completions
+// - POST <inference-prefix>/{backend}/v1/embeddings
 func (s *Scheduler) handleOpenAIInference(w http.ResponseWriter, r *http.Request) {
 	// Determine the requested backend and ensure that it's valid.
 	var backend inference.Backend

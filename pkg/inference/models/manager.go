@@ -59,14 +59,14 @@ func NewManager(log logger.ComponentLogger, httpClient *http.Client) *Manager {
 	m.router.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 	})
-	m.router.HandleFunc("POST /engines/models/create", m.handleCreateModel)
-	m.router.HandleFunc("GET /engines/models/json", m.handleGetModels)
-	m.router.HandleFunc("GET /engines/models/{namespace}/{name}/json", m.handleGetModel)
-	m.router.HandleFunc("DELETE /engines/models/{namespace}/{name}", m.handleDeleteModel)
-	m.router.HandleFunc("GET /engines/{backend}/v1/models", m.handleOpenAIGetModels)
-	m.router.HandleFunc("GET /engines/{backend}/v1/models/{namespace}/{name}", m.handleOpenAIGetModel)
-	m.router.HandleFunc("GET /engines/v1/models", m.handleOpenAIGetModels)
-	m.router.HandleFunc("GET /engines/v1/models/{namespace}/{name}", m.handleOpenAIGetModel)
+	m.router.HandleFunc("POST "+paths.InferencePrefix+"/models/create", m.handleCreateModel)
+	m.router.HandleFunc("GET "+paths.InferencePrefix+"/models/json", m.handleGetModels)
+	m.router.HandleFunc("GET "+paths.InferencePrefix+"/models/{namespace}/{name}/json", m.handleGetModel)
+	m.router.HandleFunc("DELETE "+paths.InferencePrefix+"/models/{namespace}/{name}", m.handleDeleteModel)
+	m.router.HandleFunc("GET "+paths.InferencePrefix+"/{backend}/v1/models", m.handleOpenAIGetModels)
+	m.router.HandleFunc("GET "+paths.InferencePrefix+"/{backend}/v1/models/{namespace}/{name}", m.handleOpenAIGetModel)
+	m.router.HandleFunc("GET "+paths.InferencePrefix+"/v1/models", m.handleOpenAIGetModels)
+	m.router.HandleFunc("GET "+paths.InferencePrefix+"/v1/models/{namespace}/{name}", m.handleOpenAIGetModel)
 
 	// Populate the pull concurrency semaphore.
 	for i := 0; i < maximumConcurrentModelPulls; i++ {
@@ -77,7 +77,7 @@ func NewManager(log logger.ComponentLogger, httpClient *http.Client) *Manager {
 	return m
 }
 
-// handleCreateModel handles POST /engines/models/create requests.
+// handleCreateModel handles POST <inference-prefix>/models/create requests.
 func (m *Manager) handleCreateModel(w http.ResponseWriter, r *http.Request) {
 	if m.distributionClient == nil {
 		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
@@ -99,7 +99,7 @@ func (m *Manager) handleCreateModel(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleGetModels handles GET /engines/models/json requests.
+// handleGetModels handles GET <inference-prefix>/models/json requests.
 func (m *Manager) handleGetModels(w http.ResponseWriter, r *http.Request) {
 	if m.distributionClient == nil {
 		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
@@ -120,7 +120,7 @@ func (m *Manager) handleGetModels(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleGetModel handles GET /engines/models/{namespace}/{name}/json requests.
+// handleGetModel handles GET <inference-prefix>/models/{namespace}/{name}/json requests.
 func (m *Manager) handleGetModel(w http.ResponseWriter, r *http.Request) {
 	if m.distributionClient == nil {
 		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
@@ -145,7 +145,7 @@ func (m *Manager) handleGetModel(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleDeleteModel handles DELETE /engines/models/{namespace}/{name} requests.
+// handleDeleteModel handles DELETE <inference-prefix>/models/{namespace}/{name} requests.
 func (m *Manager) handleDeleteModel(w http.ResponseWriter, r *http.Request) {
 	if m.distributionClient == nil {
 		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
@@ -169,8 +169,8 @@ func (m *Manager) handleDeleteModel(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleOpenAIGetModels handles GET /engines/{backend}/v1/models and
-// GET /engines/v1/models requests.
+// handleOpenAIGetModels handles GET <inference-prefix>/<backend>/v1/models and
+// GET /<inference-prefix>/v1/models requests.
 func (m *Manager) handleOpenAIGetModels(w http.ResponseWriter, r *http.Request) {
 	if m.distributionClient == nil {
 		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
@@ -191,8 +191,8 @@ func (m *Manager) handleOpenAIGetModels(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// handleOpenAIGetModel handles GET /engines/{backend}/v1/models/{namespace}/{name}
-// and GET /engines/v1/models/{namespace}/{name} requests.
+// handleOpenAIGetModel handles GET <inference-prefix>/<backend>/v1/models/{namespace}/{name}
+// and GET <inference-prefix>/v1/models/{namespace}/{name} requests.
 func (m *Manager) handleOpenAIGetModel(w http.ResponseWriter, r *http.Request) {
 	if m.distributionClient == nil {
 		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
