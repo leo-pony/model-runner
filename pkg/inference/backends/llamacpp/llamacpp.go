@@ -85,7 +85,7 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 	if err != nil {
 		return fmt.Errorf("failed to get llama.cpp path: %w", err)
 	}
-	llamaCppArgs := []string{"--model", modelPath}
+	llamaCppArgs := []string{"--model", modelPath, "--jinja"}
 	if mode == inference.BackendModeEmbedding {
 		llamaCppArgs = append(llamaCppArgs, "--embeddings")
 	}
