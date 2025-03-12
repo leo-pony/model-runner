@@ -11,6 +11,7 @@ import (
 
 	"github.com/docker/model-distribution/pkg/distribution"
 	"github.com/docker/model-distribution/pkg/types"
+	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/logger"
 	"github.com/docker/model-runner/pkg/paths"
 )
@@ -59,14 +60,14 @@ func NewManager(log logger.ComponentLogger, httpClient *http.Client) *Manager {
 	m.router.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 	})
-	m.router.HandleFunc("POST "+paths.ModelsPrefix+"/create", m.handleCreateModel)
-	m.router.HandleFunc("GET "+paths.ModelsPrefix, m.handleGetModels)
-	m.router.HandleFunc("GET "+paths.ModelsPrefix+"/{namespace}/{name}", m.handleGetModel)
-	m.router.HandleFunc("DELETE "+paths.ModelsPrefix+"/{namespace}/{name}", m.handleDeleteModel)
-	m.router.HandleFunc("GET "+paths.InferencePrefix+"/{backend}/v1/models", m.handleOpenAIGetModels)
-	m.router.HandleFunc("GET "+paths.InferencePrefix+"/{backend}/v1/models/{namespace}/{name}", m.handleOpenAIGetModel)
-	m.router.HandleFunc("GET "+paths.InferencePrefix+"/v1/models", m.handleOpenAIGetModels)
-	m.router.HandleFunc("GET "+paths.InferencePrefix+"/v1/models/{namespace}/{name}", m.handleOpenAIGetModel)
+	m.router.HandleFunc("POST "+inference.ModelsPrefix+"/create", m.handleCreateModel)
+	m.router.HandleFunc("GET "+inference.ModelsPrefix, m.handleGetModels)
+	m.router.HandleFunc("GET "+inference.ModelsPrefix+"/{namespace}/{name}", m.handleGetModel)
+	m.router.HandleFunc("DELETE "+inference.ModelsPrefix+"/{namespace}/{name}", m.handleDeleteModel)
+	m.router.HandleFunc("GET "+inference.InferencePrefix+"/{backend}/v1/models", m.handleOpenAIGetModels)
+	m.router.HandleFunc("GET "+inference.InferencePrefix+"/{backend}/v1/models/{namespace}/{name}", m.handleOpenAIGetModel)
+	m.router.HandleFunc("GET "+inference.InferencePrefix+"/v1/models", m.handleOpenAIGetModels)
+	m.router.HandleFunc("GET "+inference.InferencePrefix+"/v1/models/{namespace}/{name}", m.handleOpenAIGetModel)
 
 	// Populate the pull concurrency semaphore.
 	for i := 0; i < maximumConcurrentModelPulls; i++ {
