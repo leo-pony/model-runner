@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"html"
 	"net/http"
-	"strings"
 
 	"github.com/docker/model-distribution/pkg/distribution"
 	"github.com/docker/model-distribution/pkg/types"
@@ -108,15 +107,24 @@ func (m *Manager) handleGetModels(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Query models.
-	models, err := m.getModels()
+	models, err := m.distributionClient.ListModels()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	apiModels := make([]*Model, len(models))
+	for i, model := range models {
+		apiModels[i], err = ToModel(model)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
 	// Write the response.
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(models); err != nil {
+	if err := json.NewEncoder(w).Encode(apiModels); err != nil {
 		m.log.Warnln("Error while encoding model listing response:", err)
 	}
 }
@@ -139,9 +147,15 @@ func (m *Manager) handleGetModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	apiModel, err := ToModel(model)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	// Write the response.
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(model); err != nil {
+	if err := json.NewEncoder(w).Encode(apiModel); err != nil {
 		m.log.Warnln("Error while encoding model response:", err)
 	}
 }
@@ -179,15 +193,24 @@ func (m *Manager) handleOpenAIGetModels(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Query models.
-	models, err := m.getModels()
+	available, err := m.distributionClient.ListModels()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	models := make([]*OpenAIModel, len(available))
+	for i, model := range available {
+		models[i], err = ToOpenAI(model)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
 	// Write the response.
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(models.toOpenAI()); err != nil {
+	if err := json.NewEncoder(w).Encode(models); err != nil {
 		m.log.Warnln("Error while encoding OpenAI model listing response:", err)
 	}
 }
@@ -213,7 +236,12 @@ func (m *Manager) handleOpenAIGetModel(w http.ResponseWriter, r *http.Request) {
 
 	// Write the response.
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(ToOpenAI(model)); err != nil {
+	openaiModel, err := ToOpenAI(model)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := json.NewEncoder(w).Encode(openaiModel); err != nil {
 		m.log.Warnln("Error while encoding OpenAI model response:", err)
 	}
 }
@@ -223,29 +251,13 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	m.router.ServeHTTP(w, r)
 }
 
-// getModels returns a list of all models.
-func (m *Manager) getModels() (ModelList, error) {
-	// Initialize the model list. We always want to return a non-nil list (even
-	// if it's empty) so that it can be encoded directly to JSON.
-	models := make(ModelList, 0)
-
-	// Get all models from the distribution client
-	available, err := m.distributionClient.ListModels()
-	if err != nil {
-		return nil, fmt.Errorf("error while listing models: %w", err)
-	}
-
-	// Convert distribution models to our model format
-	for _, current := range available {
-		models = append(models, current)
-	}
-
-	return models, nil
-}
-
 // GetModel returns a single model.
-func (m *Manager) GetModel(ref string) (*types.Model, error) {
-	return m.distributionClient.GetModel(ref)
+func (m *Manager) GetModel(ref string) (types.Model, error) {
+	model, err := m.distributionClient.GetModel(ref)
+	if err != nil {
+		return nil, fmt.Errorf("error while getting model: %w", err)
+	}
+	return model, err
 }
 
 // GetModelPath returns the path to a model's files.
@@ -254,14 +266,11 @@ func (m *Manager) GetModelPath(ref string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// TODO: Handle multiple files
-	// Convert <algorithm>:<digest> to <algorithm>/<digest>
-	blobName := model.Files[0]
-	parts := strings.Split(blobName, ":")
-	if len(parts) != 2 {
-		return "", fmt.Errorf("invalid blob format: %s", blobName)
+	path, err := model.GGUFPath()
+	if err != nil {
+		return "", fmt.Errorf("error while getting model path: %w", err)
 	}
-	return fmt.Sprintf("%s/blobs/%s/%s", m.distributionClient.GetStorePath(), parts[0], parts[1]), nil
+	return path, nil
 }
 
 // PullModel pulls a model to local storage. Any error it returns is suitable
@@ -297,7 +306,8 @@ func (m *Manager) PullModel(ctx context.Context, model string, w http.ResponseWr
 
 	// Pull the model using the Docker model distribution client
 	m.log.Infoln("Pulling model:", model)
-	if _, err := m.distributionClient.PullModel(ctx, model, progressWriter); err != nil {
+	err := m.distributionClient.PullModel(ctx, model, progressWriter)
+	if err != nil {
 		return fmt.Errorf("error while pulling model: %w", err)
 	}
 
