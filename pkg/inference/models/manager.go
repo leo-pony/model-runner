@@ -314,10 +314,6 @@ func (m *Manager) PullModel(ctx context.Context, model string, w http.ResponseWr
 		flusher: flusher,
 	}
 
-	if flusher == nil {
-		m.log.Warnln("HTTP response writer does not support flushing, progress updates may be delayed")
-	}
-
 	// Pull the model using the Docker model distribution client
 	m.log.Infoln("Pulling model:", model)
 	err := m.distributionClient.PullModel(ctx, model, progressWriter)
