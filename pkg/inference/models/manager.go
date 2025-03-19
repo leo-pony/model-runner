@@ -94,6 +94,16 @@ func (m *Manager) handleCreateModel(w http.ResponseWriter, r *http.Request) {
 	// Pull the model. In the future, we may support additional operations here
 	// besides pulling (such as model building).
 	if err := m.PullModel(r.Context(), request.From, w); err != nil {
+		if errors.Is(err, distribution.ErrInvalidReference) {
+			m.log.Warnf("Invalid model reference %q: %v", request.From, err)
+			http.Error(w, "Invalid model reference", http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, distribution.ErrUnauthorized) || errors.Is(err, distribution.ErrModelNotFound) {
+			m.log.Warnf("Failed to pull model %q: %v", request.From, err)
+			http.Error(w, "Model not found", http.StatusNotFound)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
