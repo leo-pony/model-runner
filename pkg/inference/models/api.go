@@ -16,6 +16,26 @@ type ModelCreateRequest struct {
 	From string `json:"from"`
 }
 
+// ToOpenAIList converts the model list to its OpenAI API representation. This function never
+// returns a nil slice (though it may return an empty slice).
+func ToOpenAIList(l []types.Model) (*OpenAIModelList, error) {
+	// Convert the constituent models.
+	models := make([]*OpenAIModel, len(l))
+	for i, model := range l {
+		openAI, err := ToOpenAI(model)
+		if err != nil {
+			return nil, fmt.Errorf("convert model: %w", err)
+		}
+		models[i] = openAI
+	}
+
+	// Create the OpenAI model list.
+	return &OpenAIModelList{
+		Object: "list",
+		Data:   models,
+	}, nil
+}
+
 // ToOpenAI converts a types.Model to its OpenAI API representation.
 func ToOpenAI(m types.Model) (*OpenAIModel, error) {
 	desc, err := m.Descriptor()

@@ -209,13 +209,10 @@ func (m *Manager) handleOpenAIGetModels(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	models := make([]*OpenAIModel, len(available))
-	for i, model := range available {
-		models[i], err = ToOpenAI(model)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	models, err := ToOpenAIList(available)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	// Write the response.
