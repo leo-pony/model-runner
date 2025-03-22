@@ -35,7 +35,8 @@ var (
 // llamaCpp is the llama.cpp-based backend implementation.
 type llamaCpp struct {
 	// modelManager is the shared model manager.
-	modelManager *models.Manager
+	modelManager    *models.Manager
+	updatedLlamaCpp bool
 }
 
 // New creates a new llama.cpp-based backend.
@@ -55,7 +56,7 @@ func (l *llamaCpp) UsesExternalModelManagement() bool {
 }
 
 // Install implements inference.Backend.Install.
-func (l *llamaCpp) Install(_ context.Context, _ *http.Client) error {
+func (l *llamaCpp) Install(ctx context.Context, httpClient *http.Client) error {
 	// We don't currently support this backend on Windows or Linux. We'll likely
 	// never support it on Intel Macs.
 	if runtime.GOOS == "windows" || runtime.GOOS == "linux" {
@@ -64,7 +65,17 @@ func (l *llamaCpp) Install(_ context.Context, _ *http.Client) error {
 		return errors.New("platform not supported")
 	}
 
-	// TODO: Add support for dynamic updates on supported platforms.
+	// Temporary workaround for dynamically downloading llama.cpp from Docker Hub.
+	// Internet access and an available docker/docker-model-backend-llamacpp:latest-update on Docker Hub are required.
+	// Even if docker/docker-model-backend-llamacpp:latest-update has been downloaded before, we still require its
+	// digest to be equal to the one on Docker Hub.
+	llamaCppPath := paths.DockerHome("bin", "inference", "com.docker.llama-server")
+	if err := ensureLatestLlamaCpp(ctx, httpClient, llamaCppPath); err != nil {
+		log.Infof("failed to ensure latest llama.cpp: %v\n", err)
+	} else {
+		l.updatedLlamaCpp = true
+	}
+
 	return nil
 }
 
@@ -81,9 +92,12 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 		log.Warnln("llama.cpp may not be able to start")
 	}
 
-	binPath, err := paths.InstallPaths.BinResourcesPath()
-	if err != nil {
-		return fmt.Errorf("failed to get llama.cpp path: %w", err)
+	binPath := paths.DockerHome("bin", "inference")
+	if !l.updatedLlamaCpp {
+		binPath, err = paths.InstallPaths.BinResourcesPath()
+		if err != nil {
+			return fmt.Errorf("failed to get llama.cpp path: %w", err)
+		}
 	}
 	llamaCppArgs := []string{"--model", modelPath, "--jinja"}
 	if mode == inference.BackendModeEmbedding {
