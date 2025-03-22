@@ -72,12 +72,6 @@ func newInstaller(
 
 // run is the main run loop for the installer.
 func (i *installer) run(ctx context.Context) {
-	// If the installer has already run once, then it will have attempted all
-	// installs, so we should abort early to avoid re-closing status channels.
-	if i.started.Load() {
-		return
-	}
-
 	// Mark the installer as having started.
 	i.started.Store(true)
 
@@ -91,11 +85,24 @@ func (i *installer) run(ctx context.Context) {
 	// only), this granularity is probably less of a concern.
 	for name, backend := range i.backends {
 		status := i.statuses[name]
+
+		var installedClosed bool
+		select {
+		case <-status.installed:
+			installedClosed = true
+		default:
+			installedClosed = false
+		}
+
+		if (status.err != nil && !errors.Is(status.err, context.Canceled)) || installedClosed {
+			continue
+		}
 		if err := backend.Install(ctx, i.httpClient); err != nil {
 			i.log.Warnf("Backend installation failed for %s: %v", name, err)
 			select {
 			case <-ctx.Done():
-				status.err = errInstallerShuttingDown
+				status.err = errors.Join(errInstallerShuttingDown, ctx.Err())
+				continue
 			default:
 				status.err = err
 			}

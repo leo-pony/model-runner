@@ -72,6 +72,9 @@ func (l *llamaCpp) Install(ctx context.Context, httpClient *http.Client) error {
 	llamaCppPath := paths.DockerHome("bin", "inference", "com.docker.llama-server")
 	if err := ensureLatestLlamaCpp(ctx, httpClient, llamaCppPath); err != nil {
 		log.Infof("failed to ensure latest llama.cpp: %v\n", err)
+		if errors.Is(err, context.Canceled) {
+			return err
+		}
 	} else {
 		l.updatedLlamaCpp = true
 	}
