@@ -11,6 +11,7 @@ import (
 	"github.com/docker/model-distribution/pkg/distribution"
 	"github.com/docker/model-distribution/pkg/types"
 	"github.com/docker/model-runner/pkg/inference"
+	"github.com/docker/model-runner/pkg/ipc"
 	"github.com/docker/model-runner/pkg/logger"
 	"github.com/docker/model-runner/pkg/paths"
 )
@@ -25,8 +26,6 @@ const (
 type Manager struct {
 	// log is the associated logger.
 	log logger.ComponentLogger
-	// httpClient is the HTTP client to use for model pulls.
-	httpClient *http.Client
 	// pullTokens is a semaphore used to restrict the maximum number of
 	// concurrent pull requests.
 	pullTokens chan struct{}
@@ -37,11 +36,14 @@ type Manager struct {
 }
 
 // NewManager creates a new model's manager.
-func NewManager(log logger.ComponentLogger, httpClient *http.Client) *Manager {
+func NewManager(log logger.ComponentLogger, transport http.RoundTripper) *Manager {
 	// Create the distribution client
 	distributionClient, err := distribution.NewClient(
 		distribution.WithStoreRootPath(paths.DockerHome("models")),
-		distribution.WithLogger(log.WithField("component", "model-distribution")))
+		distribution.WithLogger(log.WithField("component", "model-distribution")),
+		distribution.WithTransport(transport),
+		distribution.WithUserAgent(ipc.UserAgent),
+	)
 	if err != nil {
 		log.Errorf("Failed to create distribution client: %v", err)
 		// Continue without distribution client
@@ -49,7 +51,6 @@ func NewManager(log logger.ComponentLogger, httpClient *http.Client) *Manager {
 	// Create the manager.
 	m := &Manager{
 		log:                log,
-		httpClient:         httpClient,
 		pullTokens:         make(chan struct{}, maximumConcurrentModelPulls),
 		router:             http.NewServeMux(),
 		distributionClient: distributionClient,
