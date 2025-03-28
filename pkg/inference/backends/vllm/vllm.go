@@ -2,9 +2,9 @@ package vllm
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
-	"github.com/docker/model-runner/pkg/errordef"
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/inference/models"
 	"github.com/docker/model-runner/pkg/logger"
@@ -18,8 +18,6 @@ const (
 )
 
 var (
-	// errors is used for generating and wrapping errors.
-	errors = errordef.NewHelper(componentName, nil)
 	// log is the log for the backend service.
 	log = logger.Default.WithComponent(componentName)
 )

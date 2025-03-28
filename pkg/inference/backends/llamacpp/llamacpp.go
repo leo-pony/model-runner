@@ -2,6 +2,7 @@ package llamacpp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -9,7 +10,6 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/docker/model-runner/pkg/errordef"
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/inference/models"
 	"github.com/docker/model-runner/pkg/logger"
@@ -24,8 +24,6 @@ const (
 )
 
 var (
-	// errors is used for generating and wrapping errors.
-	errors = errordef.NewHelper(componentName, nil)
 	// log is the log for the backend service.
 	log = logger.Default.WithComponent(componentName)
 	// serveLog is the log for llamaCppProcess
@@ -124,7 +122,7 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 	llamaCppProcess.Stderr = serveLogStream
 
 	if err := llamaCppProcess.Start(); err != nil {
-		return errors.Wrap(err, "unable to start llama.cpp")
+		return fmt.Errorf("unable to start llama.cpp: %w", err)
 	}
 
 	llamaCppErrors := make(chan error, 1)
@@ -147,6 +145,6 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 			return nil
 		default:
 		}
-		return errors.Wrap(llamaCppErr, "llama.cpp terminated unexpectedly")
+		return fmt.Errorf("llama.cpp terminated unexpectedly: %w", llamaCppErr)
 	}
 }
