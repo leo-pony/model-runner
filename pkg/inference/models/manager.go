@@ -11,9 +11,7 @@ import (
 	"github.com/docker/model-distribution/pkg/distribution"
 	"github.com/docker/model-distribution/pkg/types"
 	"github.com/docker/model-runner/pkg/inference"
-	"github.com/docker/model-runner/pkg/ipc"
 	"github.com/docker/model-runner/pkg/logger"
-	"github.com/docker/model-runner/pkg/paths"
 )
 
 const (
@@ -36,24 +34,13 @@ type Manager struct {
 }
 
 // NewManager creates a new model's manager.
-func NewManager(log logger.ComponentLogger, transport http.RoundTripper) *Manager {
-	// Create the distribution client
-	distributionClient, err := distribution.NewClient(
-		distribution.WithStoreRootPath(paths.DockerHome("models")),
-		distribution.WithLogger(log.WithField("component", "model-distribution")),
-		distribution.WithTransport(transport),
-		distribution.WithUserAgent(ipc.UserAgent),
-	)
-	if err != nil {
-		log.Errorf("Failed to create distribution client: %v", err)
-		// Continue without distribution client
-	}
+func NewManager(log logger.ComponentLogger, client *distribution.Client) *Manager {
 	// Create the manager.
 	m := &Manager{
 		log:                log,
 		pullTokens:         make(chan struct{}, maximumConcurrentModelPulls),
 		router:             http.NewServeMux(),
-		distributionClient: distributionClient,
+		distributionClient: client,
 	}
 
 	// Register routes.

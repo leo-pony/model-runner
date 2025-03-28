@@ -13,7 +13,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/docker/model-runner/pkg/dockerhub"
+	"github.com/docker/model-runner/pkg/internal/dockerhub"
 	"github.com/docker/model-runner/pkg/paths"
 )
 
