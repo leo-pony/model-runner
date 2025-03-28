@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/docker/model-runner/pkg/inference"
-	"github.com/docker/model-runner/pkg/logger"
+	"github.com/docker/model-runner/pkg/logging"
 )
 
 var (
@@ -35,7 +35,7 @@ type installStatus struct {
 // installer drives backend installations.
 type installer struct {
 	// log is the associated logger.
-	log logger.ComponentLogger
+	log logging.Logger
 	// backends are the supported inference backends.
 	backends map[string]inference.Backend
 	// httpClient is the HTTP client to use for backend installations.
@@ -48,7 +48,7 @@ type installer struct {
 
 // newInstaller creates a new backend installer.
 func newInstaller(
-	log logger.ComponentLogger,
+	log logging.Logger,
 	backends map[string]inference.Backend,
 	httpClient *http.Client,
 ) *installer {

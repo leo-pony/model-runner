@@ -12,34 +12,49 @@ import (
 
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/inference/models"
-	"github.com/docker/model-runner/pkg/logger"
-	"github.com/docker/model-runner/pkg/paths"
+	"github.com/docker/model-runner/pkg/logging"
 )
 
 const (
 	// Name is the backend name.
 	Name = "llama.cpp"
-	// componentName is the component name.
-	componentName = "inference-" + Name
 )
 
-var (
-	// log is the log for the backend service.
-	log = logger.Default.WithComponent(componentName)
-	// serveLog is the log for llamaCppProcess
-	serveLog = logger.MakeFileOnly("", componentName)
-)
+// VendoredServerStoragePath returns the parent path of the vendored version of
+// com.docker.llama-server. It can be overridden during init().
+var VendoredServerStoragePath = func() (string, error) {
+	return ".", nil
+}
+
+// UpdatedServerStoragePath returns the parent path of the updated version of
+// com.docker.llama-server. It is also where updates will be stored when
+// downloaded. It can be overridden during init().
+var UpdatedServerStoragePath = func() (string, error) {
+	return ".", nil
+}
 
 // llamaCpp is the llama.cpp-based backend implementation.
 type llamaCpp struct {
+	// log is the associated logger.
+	log logging.Logger
 	// modelManager is the shared model manager.
-	modelManager    *models.Manager
+	modelManager *models.Manager
+	// serverLog is the logger to use for the llama.cpp server process.
+	serverLog       logging.Logger
 	updatedLlamaCpp bool
 }
 
 // New creates a new llama.cpp-based backend.
-func New(modelManager *models.Manager) (inference.Backend, error) {
-	return &llamaCpp{modelManager: modelManager}, nil
+func New(
+	log logging.Logger,
+	modelManager *models.Manager,
+	serverLog logging.Logger,
+) (inference.Backend, error) {
+	return &llamaCpp{
+		log:          log,
+		modelManager: modelManager,
+		serverLog:    serverLog,
+	}, nil
 }
 
 // Name implements inference.Backend.Name.
@@ -67,9 +82,13 @@ func (l *llamaCpp) Install(ctx context.Context, httpClient *http.Client) error {
 	// Internet access and an available docker/docker-model-backend-llamacpp:latest-update on Docker Hub are required.
 	// Even if docker/docker-model-backend-llamacpp:latest-update has been downloaded before, we still require its
 	// digest to be equal to the one on Docker Hub.
-	llamaCppPath := paths.DockerHome("bin", "inference", "com.docker.llama-server")
-	if err := ensureLatestLlamaCpp(ctx, httpClient, llamaCppPath); err != nil {
-		log.Infof("failed to ensure latest llama.cpp: %v\n", err)
+	llamaCppStorage, err := UpdatedServerStoragePath()
+	if err != nil {
+		return fmt.Errorf("unable to determine llama.cpp path: %w", err)
+	}
+	llamaCppPath := filepath.Join(llamaCppStorage, "com.docker.llama-server")
+	if err := ensureLatestLlamaCpp(ctx, l.log, httpClient, llamaCppPath); err != nil {
+		l.log.Infof("failed to ensure latest llama.cpp: %v\n", err)
 		if errors.Is(err, context.Canceled) {
 			return err
 		}
@@ -83,21 +102,24 @@ func (l *llamaCpp) Install(ctx context.Context, httpClient *http.Client) error {
 // Run implements inference.Backend.Run.
 func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference.BackendMode) error {
 	modelPath, err := l.modelManager.GetModelPath(model)
-	log.Infof("Model path: %s", modelPath)
+	l.log.Infof("Model path: %s", modelPath)
 	if err != nil {
 		return fmt.Errorf("failed to get model path: %w", err)
 	}
 
 	if err := os.RemoveAll(socket); err != nil {
-		log.Warnln("failed to remove socket file %s: %w", socket, err)
-		log.Warnln("llama.cpp may not be able to start")
+		l.log.Warnln("failed to remove socket file %s: %w", socket, err)
+		l.log.Warnln("llama.cpp may not be able to start")
 	}
 
-	binPath := paths.DockerHome("bin", "inference")
+	binPath, err := UpdatedServerStoragePath()
+	if err != nil {
+		return fmt.Errorf("unable to determine llama.cpp path: %w", err)
+	}
 	if !l.updatedLlamaCpp {
-		binPath, err = paths.InstallPaths.BinResourcesPath()
+		binPath, err = VendoredServerStoragePath()
 		if err != nil {
-			return fmt.Errorf("failed to get llama.cpp path: %w", err)
+			return fmt.Errorf("unable to determine vendored llama.cpp path: %w", err)
 		}
 	}
 	llamaCppArgs := []string{"--model", modelPath, "--jinja"}
@@ -117,9 +139,9 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 		// port this backend there.
 		return llamaCppProcess.Process.Signal(os.Interrupt)
 	}
-	serveLogStream := serveLog.Writer()
-	llamaCppProcess.Stdout = serveLogStream
-	llamaCppProcess.Stderr = serveLogStream
+	serverLogStream := l.serverLog.Writer()
+	llamaCppProcess.Stdout = serverLogStream
+	llamaCppProcess.Stderr = serverLogStream
 
 	if err := llamaCppProcess.Start(); err != nil {
 		return fmt.Errorf("unable to start llama.cpp: %w", err)
@@ -128,7 +150,7 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 	llamaCppErrors := make(chan error, 1)
 	go func() {
 		llamaCppErr := llamaCppProcess.Wait()
-		serveLogStream.Close()
+		serverLogStream.Close()
 		llamaCppErrors <- llamaCppErr
 		close(llamaCppErrors)
 	}()

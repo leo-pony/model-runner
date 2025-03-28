@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/docker/model-runner/pkg/internal/dockerhub"
-	"github.com/docker/model-runner/pkg/paths"
+	"github.com/docker/model-runner/pkg/logging"
 )
 
 const (
@@ -22,7 +22,7 @@ const (
 	hubRepo      = "docker-model-backend-llamacpp"
 )
 
-func ensureLatestLlamaCpp(ctx context.Context, httpClient *http.Client, llamaCppPath string) error {
+func ensureLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient *http.Client, llamaCppPath string) error {
 	url := fmt.Sprintf("https://hub.docker.com/v2/namespaces/%s/repositories/%s/tags", hubNamespace, hubRepo)
 	resp, err := httpClient.Get(url)
 	if err != nil {
@@ -74,10 +74,13 @@ func ensureLatestLlamaCpp(ctx context.Context, httpClient *http.Client, llamaCpp
 	}
 
 	image := fmt.Sprintf("registry-1.docker.io/%s/%s@%s", hubNamespace, hubRepo, latest)
-	downloadDir := paths.DockerHome(".llamacpp-tmp")
+	downloadDir, err := os.MkdirTemp("", "llamacpp-install")
+	if err != nil {
+		return fmt.Errorf("could not create temporary directory: %w", err)
+	}
 	defer os.RemoveAll(downloadDir)
 
-	if err := extractFromImage(ctx, image, runtime.GOOS, runtime.GOARCH, downloadDir); err != nil {
+	if err := extractFromImage(ctx, log, image, runtime.GOOS, runtime.GOARCH, downloadDir); err != nil {
 		return fmt.Errorf("could not extract image: %w", err)
 	}
 
@@ -97,7 +100,7 @@ func ensureLatestLlamaCpp(ctx context.Context, httpClient *http.Client, llamaCpp
 	}
 
 	log.Infoln("successfully updated llama.cpp binary")
-	log.Infoln("running llama.cpp version:", getLlamaCppVersion(llamaCppPath))
+	log.Infoln("running llama.cpp version:", getLlamaCppVersion(log, llamaCppPath))
 
 	if err := os.WriteFile(currentVersionFile, []byte(latest), 0o644); err != nil {
 		log.Warnf("failed to save llama.cpp version: %v", err)
@@ -106,7 +109,7 @@ func ensureLatestLlamaCpp(ctx context.Context, httpClient *http.Client, llamaCpp
 	return nil
 }
 
-func extractFromImage(ctx context.Context, image, requiredOs, requiredArch, destination string) error {
+func extractFromImage(ctx context.Context, log logging.Logger, image, requiredOs, requiredArch, destination string) error {
 	log.Infof("Extracting image %q to %q", image, destination)
 	tmpDir, err := os.MkdirTemp("", "docker-tar-extract")
 	if err != nil {
@@ -119,7 +122,7 @@ func extractFromImage(ctx context.Context, image, requiredOs, requiredArch, dest
 	return dockerhub.Extract(imageTar, requiredArch, requiredOs, destination)
 }
 
-func getLlamaCppVersion(llamaCpp string) string {
+func getLlamaCppVersion(log logging.Logger, llamaCpp string) string {
 	output, err := exec.Command(llamaCpp, "--version").CombinedOutput()
 	if err != nil {
 		log.Warnf("could not get llama.cpp version: %v", err)

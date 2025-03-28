@@ -13,8 +13,7 @@ import (
 	"time"
 
 	"github.com/docker/model-runner/pkg/inference"
-	"github.com/docker/model-runner/pkg/logger"
-	"github.com/docker/model-runner/pkg/paths"
+	"github.com/docker/model-runner/pkg/logging"
 )
 
 const (
@@ -30,11 +29,17 @@ const (
 // long to initialize and respond to a readiness request.
 var errBackendNotReadyInTime = errors.New("inference backend took too long to initialize")
 
+// RunnerSocketPath determines the Unix domain socket path used to communicate
+// with runners at the specified slot. It can be overridden during init().
+var RunnerSocketPath = func(slot int) (string, error) {
+	return fmt.Sprintf("inference-runner-%d.sock", slot), nil
+}
+
 // runner executes a given backend with a given model and provides reverse
 // proxying to that backend.
 type runner struct {
 	// log is the component logger.
-	log logger.ComponentLogger
+	log logging.Logger
 	// backend is the associated backend.
 	backend inference.Backend
 	// model is the associated model.
@@ -57,14 +62,17 @@ type runner struct {
 
 // run creates a new runner instance.
 func run(
-	log logger.ComponentLogger,
+	log logging.Logger,
 	backend inference.Backend,
 	model string,
 	mode inference.BackendMode,
 	slot int,
 ) (*runner, error) {
 	// Create a dialer / transport that target backend on the specified slot.
-	socket := paths.HostServiceSockets().InferenceBackend(slot)
+	socket, err := RunnerSocketPath(slot)
+	if err != nil {
+		return nil, fmt.Errorf("unable to determine runner socket path: %w", err)
+	}
 	dialer := &net.Dialer{}
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {

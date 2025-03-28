@@ -7,30 +7,28 @@ import (
 
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/inference/models"
-	"github.com/docker/model-runner/pkg/logger"
+	"github.com/docker/model-runner/pkg/logging"
 )
 
 const (
 	// Name is the backend name.
 	Name = "mlx"
-	// componentName is the component name.
-	componentName = "inference-" + Name
-)
-
-var (
-	// log is the log for the backend service.
-	log = logger.Default.WithComponent(componentName)
 )
 
 // mlx is the MLX-based backend implementation.
 type mlx struct {
+	// log is the associated logger.
+	log logging.Logger
 	// modelManager is the shared model manager.
 	modelManager *models.Manager
 }
 
 // New creates a new MLX-based backend.
-func New(modelManager *models.Manager) (inference.Backend, error) {
-	return &mlx{modelManager: modelManager}, nil
+func New(log logging.Logger, modelManager *models.Manager) (inference.Backend, error) {
+	return &mlx{
+		log:          log,
+		modelManager: modelManager,
+	}, nil
 }
 
 // Name implements inference.Backend.Name.
@@ -53,6 +51,6 @@ func (m *mlx) Install(ctx context.Context, httpClient *http.Client) error {
 // Run implements inference.Backend.Run.
 func (m *mlx) Run(ctx context.Context, socket, model string, mode inference.BackendMode) error {
 	// TODO: Implement.
-	log.Warn("MLX backend is not yet supported")
+	m.log.Warn("MLX backend is not yet supported")
 	return errors.New("not implemented")
 }

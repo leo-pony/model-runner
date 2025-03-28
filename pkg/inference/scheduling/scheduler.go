@@ -12,7 +12,7 @@ import (
 	"github.com/docker/model-distribution/pkg/distribution"
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/inference/models"
-	"github.com/docker/model-runner/pkg/logger"
+	"github.com/docker/model-runner/pkg/logging"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -20,7 +20,7 @@ import (
 // and models.
 type Scheduler struct {
 	// log is the associated logger.
-	log logger.ComponentLogger
+	log logging.Logger
 	// backends are the supported inference backends.
 	backends map[string]inference.Backend
 	// defaultBackend is the default inference backend. It may be nil.
@@ -37,7 +37,7 @@ type Scheduler struct {
 
 // NewScheduler creates a new inference scheduler.
 func NewScheduler(
-	log logger.ComponentLogger,
+	log logging.Logger,
 	backends map[string]inference.Backend,
 	defaultBackend inference.Backend,
 	modelManager *models.Manager,

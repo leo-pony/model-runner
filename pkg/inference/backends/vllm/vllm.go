@@ -7,30 +7,28 @@ import (
 
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/inference/models"
-	"github.com/docker/model-runner/pkg/logger"
+	"github.com/docker/model-runner/pkg/logging"
 )
 
 const (
 	// Name is the backend name.
 	Name = "vllm"
-	// componentName is the component name.
-	componentName = "inference-" + Name
-)
-
-var (
-	// log is the log for the backend service.
-	log = logger.Default.WithComponent(componentName)
 )
 
 // vLLM is the vLLM-based backend implementation.
 type vLLM struct {
+	// log is the associated logger.
+	log logging.Logger
 	// modelManager is the shared model manager.
 	modelManager *models.Manager
 }
 
 // New creates a new vLLM-based backend.
-func New(modelManager *models.Manager) (inference.Backend, error) {
-	return &vLLM{modelManager: modelManager}, nil
+func New(log logging.Logger, modelManager *models.Manager) (inference.Backend, error) {
+	return &vLLM{
+		log:          log,
+		modelManager: modelManager,
+	}, nil
 }
 
 // Name implements inference.Backend.Name.
@@ -53,6 +51,6 @@ func (v *vLLM) Install(ctx context.Context, httpClient *http.Client) error {
 // Run implements inference.Backend.Run.
 func (v *vLLM) Run(ctx context.Context, socket, model string, mode inference.BackendMode) error {
 	// TODO: Implement.
-	log.Warn("vLLM backend is not yet supported")
+	v.log.Warn("vLLM backend is not yet supported")
 	return errors.New("not implemented")
 }

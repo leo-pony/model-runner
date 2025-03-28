@@ -9,7 +9,7 @@ import (
 
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/inference/models"
-	"github.com/docker/model-runner/pkg/logger"
+	"github.com/docker/model-runner/pkg/logging"
 )
 
 const (
@@ -48,7 +48,7 @@ type runnerKey struct {
 // been installed successfully.
 type loader struct {
 	// log is the associated logger.
-	log logger.ComponentLogger
+	log logging.Logger
 	// backends are the supported inference backends.
 	backends map[string]inference.Backend
 	// modelManager is the shared model manager.
@@ -86,7 +86,7 @@ type loader struct {
 
 // newLoader creates a new loader.
 func newLoader(
-	log logger.ComponentLogger,
+	log logging.Logger,
 	backends map[string]inference.Backend,
 	modelManager *models.Manager,
 ) *loader {

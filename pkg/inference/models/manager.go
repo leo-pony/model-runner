@@ -11,7 +11,7 @@ import (
 	"github.com/docker/model-distribution/pkg/distribution"
 	"github.com/docker/model-distribution/pkg/types"
 	"github.com/docker/model-runner/pkg/inference"
-	"github.com/docker/model-runner/pkg/logger"
+	"github.com/docker/model-runner/pkg/logging"
 )
 
 const (
@@ -23,7 +23,7 @@ const (
 // Manager manages inference model pulls and storage.
 type Manager struct {
 	// log is the associated logger.
-	log logger.ComponentLogger
+	log logging.Logger
 	// pullTokens is a semaphore used to restrict the maximum number of
 	// concurrent pull requests.
 	pullTokens chan struct{}
@@ -34,7 +34,7 @@ type Manager struct {
 }
 
 // NewManager creates a new model's manager.
-func NewManager(log logger.ComponentLogger, client *distribution.Client) *Manager {
+func NewManager(log logging.Logger, client *distribution.Client) *Manager {
 	// Create the manager.
 	m := &Manager{
 		log:                log,
