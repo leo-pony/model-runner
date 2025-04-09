@@ -48,14 +48,9 @@ func NewManager(log logging.Logger, client *distribution.Client) *Manager {
 		http.Error(w, "not found", http.StatusNotFound)
 	})
 
-	m.router.HandleFunc("POST "+inference.ModelsPrefix+"/create", m.handleCreateModel)
-	m.router.HandleFunc("GET "+inference.ModelsPrefix, m.handleGetModels)
-	m.router.HandleFunc("GET "+inference.ModelsPrefix+"/{name...}", m.handleGetModel)
-	m.router.HandleFunc("DELETE "+inference.ModelsPrefix+"/{name...}", m.handleDeleteModel)
-	m.router.HandleFunc("GET "+inference.InferencePrefix+"/{backend}/v1/models", m.handleOpenAIGetModels)
-	m.router.HandleFunc("GET "+inference.InferencePrefix+"/{backend}/v1/models/{name...}", m.handleOpenAIGetModel)
-	m.router.HandleFunc("GET "+inference.InferencePrefix+"/v1/models", m.handleOpenAIGetModels)
-	m.router.HandleFunc("GET "+inference.InferencePrefix+"/v1/models/{name...}", m.handleOpenAIGetModel)
+	for route, handler := range m.routeHandlers() {
+		m.router.HandleFunc(route, handler)
+	}
 
 	// Populate the pull concurrency semaphore.
 	for i := 0; i < maximumConcurrentModelPulls; i++ {
@@ -64,6 +59,19 @@ func NewManager(log logging.Logger, client *distribution.Client) *Manager {
 
 	// Manager successfully initialized.
 	return m
+}
+
+func (m *Manager) routeHandlers() map[string]http.HandlerFunc {
+	return map[string]http.HandlerFunc{
+		"POST " + inference.ModelsPrefix + "/create":                          m.handleCreateModel,
+		"GET " + inference.ModelsPrefix:                                       m.handleGetModels,
+		"GET " + inference.ModelsPrefix + "/{name...}":                        m.handleGetModel,
+		"DELETE " + inference.ModelsPrefix + "/{name...}":                     m.handleDeleteModel,
+		"GET " + inference.InferencePrefix + "/{backend}/v1/models":           m.handleOpenAIGetModels,
+		"GET " + inference.InferencePrefix + "/{backend}/v1/models/{name...}": m.handleOpenAIGetModel,
+		"GET " + inference.InferencePrefix + "/v1/models":                     m.handleOpenAIGetModels,
+		"GET " + inference.InferencePrefix + "/v1/models/{name...}":           m.handleOpenAIGetModel,
+	}
 }
 
 // handleCreateModel handles POST <inference-prefix>/models/create requests.
