@@ -47,14 +47,15 @@ func NewManager(log logging.Logger, client *distribution.Client) *Manager {
 	m.router.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 	})
+
 	m.router.HandleFunc("POST "+inference.ModelsPrefix+"/create", m.handleCreateModel)
 	m.router.HandleFunc("GET "+inference.ModelsPrefix, m.handleGetModels)
-	m.router.HandleFunc("GET "+inference.ModelsPrefix+"/{namespace}/{name}", m.handleGetModel)
-	m.router.HandleFunc("DELETE "+inference.ModelsPrefix+"/{namespace}/{name}", m.handleDeleteModel)
+	m.router.HandleFunc("GET "+inference.ModelsPrefix+"/{name...}", m.handleGetModel)
+	m.router.HandleFunc("DELETE "+inference.ModelsPrefix+"/{name...}", m.handleDeleteModel)
 	m.router.HandleFunc("GET "+inference.InferencePrefix+"/{backend}/v1/models", m.handleOpenAIGetModels)
-	m.router.HandleFunc("GET "+inference.InferencePrefix+"/{backend}/v1/models/{namespace}/{name}", m.handleOpenAIGetModel)
+	m.router.HandleFunc("GET "+inference.InferencePrefix+"/{backend}/v1/models/{name...}", m.handleOpenAIGetModel)
 	m.router.HandleFunc("GET "+inference.InferencePrefix+"/v1/models", m.handleOpenAIGetModels)
-	m.router.HandleFunc("GET "+inference.InferencePrefix+"/v1/models/{namespace}/{name}", m.handleOpenAIGetModel)
+	m.router.HandleFunc("GET "+inference.InferencePrefix+"/v1/models/{name...}", m.handleOpenAIGetModel)
 
 	// Populate the pull concurrency semaphore.
 	for i := 0; i < maximumConcurrentModelPulls; i++ {
@@ -127,7 +128,7 @@ func (m *Manager) handleGetModels(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleGetModel handles GET <inference-prefix>/models/{namespace}/{name} requests.
+// handleGetModel handles GET <inference-prefix>/models/{name} requests.
 func (m *Manager) handleGetModel(w http.ResponseWriter, r *http.Request) {
 	if m.distributionClient == nil {
 		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
@@ -135,7 +136,7 @@ func (m *Manager) handleGetModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Query the model.
-	model, err := m.GetModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
+	model, err := m.GetModel(r.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, distribution.ErrModelNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -158,7 +159,7 @@ func (m *Manager) handleGetModel(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleDeleteModel handles DELETE <inference-prefix>/models/{namespace}/{name} requests.
+// handleDeleteModel handles DELETE <inference-prefix>/models/{name} requests.
 func (m *Manager) handleDeleteModel(w http.ResponseWriter, r *http.Request) {
 	if m.distributionClient == nil {
 		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
@@ -174,7 +175,7 @@ func (m *Manager) handleDeleteModel(w http.ResponseWriter, r *http.Request) {
 	// the runner process exits (though this won't work for Windows, where we
 	// might need some separate cleanup process).
 
-	err := m.distributionClient.DeleteModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
+	err := m.distributionClient.DeleteModel(r.PathValue("name"))
 	if err != nil {
 		m.log.Warnln("Error while deleting model:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -210,8 +211,8 @@ func (m *Manager) handleOpenAIGetModels(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// handleOpenAIGetModel handles GET <inference-prefix>/<backend>/v1/models/{namespace}/{name}
-// and GET <inference-prefix>/v1/models/{namespace}/{name} requests.
+// handleOpenAIGetModel handles GET <inference-prefix>/<backend>/v1/models/{name}
+// and GET <inference-prefix>/v1/models/{name} requests.
 func (m *Manager) handleOpenAIGetModel(w http.ResponseWriter, r *http.Request) {
 	if m.distributionClient == nil {
 		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
@@ -219,7 +220,7 @@ func (m *Manager) handleOpenAIGetModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Query the model.
-	model, err := m.GetModel(r.PathValue("namespace") + "/" + r.PathValue("name"))
+	model, err := m.GetModel(r.PathValue("name"))
 	if err != nil {
 		if errors.Is(err, distribution.ErrModelNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
