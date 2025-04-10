@@ -47,7 +47,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to listen on socket: %v", err)
 	}
-	defer os.Remove(sockName)
 
 	server := &http.Server{Handler: router}
 	serverErrors := make(chan error, 1)
