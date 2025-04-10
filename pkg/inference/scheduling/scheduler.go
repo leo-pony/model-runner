@@ -58,15 +58,24 @@ func NewScheduler(
 	s.router.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 	})
-	s.router.HandleFunc("POST "+inference.InferencePrefix+"/{backend}/v1/chat/completions", s.handleOpenAIInference)
-	s.router.HandleFunc("POST "+inference.InferencePrefix+"/{backend}/v1/completions", s.handleOpenAIInference)
-	s.router.HandleFunc("POST "+inference.InferencePrefix+"/{backend}/v1/embeddings", s.handleOpenAIInference)
-	s.router.HandleFunc("POST "+inference.InferencePrefix+"/v1/chat/completions", s.handleOpenAIInference)
-	s.router.HandleFunc("POST "+inference.InferencePrefix+"/v1/completions", s.handleOpenAIInference)
-	s.router.HandleFunc("POST "+inference.InferencePrefix+"/v1/embeddings", s.handleOpenAIInference)
+
+	for _, route := range s.GetRoutes() {
+		s.router.HandleFunc(route, s.handleOpenAIInference)
+	}
 
 	// Scheduler successfully initialized.
 	return s
+}
+
+func (s *Scheduler) GetRoutes() []string {
+	return []string{
+		"POST " + inference.InferencePrefix + "/{backend}/v1/chat/completions",
+		"POST " + inference.InferencePrefix + "/{backend}/v1/completions",
+		"POST " + inference.InferencePrefix + "/{backend}/v1/embeddings",
+		"POST " + inference.InferencePrefix + "/v1/chat/completions",
+		"POST " + inference.InferencePrefix + "/v1/completions",
+		"POST " + inference.InferencePrefix + "/v1/embeddings",
+	}
 }
 
 // Run is the scheduler's main run loop. By the time it returns, all inference
