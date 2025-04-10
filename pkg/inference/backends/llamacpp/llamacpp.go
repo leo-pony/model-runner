@@ -139,6 +139,9 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 		serverLogStream.Close()
 		llamaCppErrors <- llamaCppErr
 		close(llamaCppErrors)
+		if err := os.Remove(socket); err != nil {
+			l.log.Warnln("failed to remove socket file %s on exit: %w", socket, err)
+		}
 	}()
 	defer func() {
 		<-llamaCppErrors
