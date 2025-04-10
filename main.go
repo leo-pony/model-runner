@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"os"
@@ -9,15 +10,23 @@ import (
 	"syscall"
 
 	"github.com/docker/model-distribution/pkg/distribution"
+	"github.com/docker/model-runner/pkg/inference"
+	"github.com/docker/model-runner/pkg/inference/backends/llamacpp"
 	"github.com/docker/model-runner/pkg/inference/models"
+	"github.com/docker/model-runner/pkg/inference/scheduling"
 	"github.com/sirupsen/logrus"
 )
 
 var log = logrus.New()
 
 func main() {
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	sockName := os.Getenv("MODEL_RUNNER_SOCK")
+	if sockName == "" {
+		sockName = "model-runner.sock"
+	}
 
 	userHomeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -32,12 +41,33 @@ func main() {
 
 	modelManager := models.NewManager(log, distributionClient)
 
+	llamaCppBackend, err := llamacpp.New(
+		log,
+		modelManager,
+		log.WithFields(logrus.Fields{"component": "llama.cpp"}),
+		"/Applications/Docker.app/Contents/Resources/bin",
+		func() string { wd, _ := os.Getwd(); return wd }(),
+	)
+	if err != nil {
+		log.Fatalf("unable to initialize %s backend: %v", llamacpp.Name, err)
+	}
+
+	scheduler := scheduling.NewScheduler(
+		log,
+		map[string]inference.Backend{llamacpp.Name: llamaCppBackend},
+		llamaCppBackend,
+		modelManager,
+		http.DefaultClient,
+	)
+
 	router := http.NewServeMux()
 	for _, route := range modelManager.GetRoutes() {
 		router.Handle(route, modelManager)
 	}
+	for _, route := range scheduler.GetRoutes() {
+		router.Handle(route, scheduler)
+	}
 
-	sockName := "model-runner.sock"
 	if err := os.Remove(sockName); err != nil {
 		if !os.IsNotExist(err) {
 			log.Fatalf("Failed to remove existing socket: %v", err)
@@ -55,13 +85,26 @@ func main() {
 	}()
 	defer server.Close()
 
+	schedulerErrors := make(chan error, 1)
+	go func() {
+		schedulerErrors <- scheduler.Run(ctx)
+	}()
+
 	select {
 	case err := <-serverErrors:
 		if err != nil {
 			log.Errorf("Server error: %v", err)
 		}
-	case <-stop:
+	case <-ctx.Done():
 		log.Infoln("Shutdown signal received")
+		log.Infoln("Waiting for the scheduler to stop")
+		if err := <-schedulerErrors; err != nil {
+			log.Errorf("Scheduler error: %v", err)
+		}
+		log.Infoln("Shutting down the server")
+		if err := server.Shutdown(ctx); err != nil {
+			log.Errorf("Server shutdown error: %v", err)
+		}
 	}
-	log.Infoln("Server stopped")
+	log.Infoln("Docker Model Runner stopped")
 }
