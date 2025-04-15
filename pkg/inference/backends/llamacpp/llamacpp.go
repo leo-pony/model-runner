@@ -74,12 +74,17 @@ func (l *llamaCpp) Install(ctx context.Context, httpClient *http.Client) error {
 		return errors.New("platform not supported")
 	}
 
+	llamaServerBin := "com.docker.llama-server"
+	if runtime.GOOS == "windows" {
+		llamaServerBin = "com.docker.llama-server.exe"
+	}
+
 	// Temporary workaround for dynamically downloading llama.cpp from Docker Hub.
-	// Internet access and an available docker/docker-model-backend-llamacpp:latest-update on Docker Hub are required.
-	// Even if docker/docker-model-backend-llamacpp:latest-update has been downloaded before, we still require its
+	// Internet access and an available docker/docker-model-backend-llamacpp:latest on Docker Hub are required.
+	// Even if docker/docker-model-backend-llamacpp:latest has been downloaded before, we still require its
 	// digest to be equal to the one on Docker Hub.
-	llamaCppPath := filepath.Join(l.updatedServerStoragePath, "com.docker.llama-server")
-	if err := ensureLatestLlamaCpp(ctx, l.log, httpClient, llamaCppPath); err != nil {
+	llamaCppPath := filepath.Join(l.updatedServerStoragePath, llamaServerBin)
+	if err := ensureLatestLlamaCpp(ctx, l.log, httpClient, llamaCppPath, l.vendoredServerStoragePath); err != nil {
 		l.log.Infof("failed to ensure latest llama.cpp: %v\n", err)
 		if errors.Is(err, context.Canceled) {
 			return err
@@ -108,7 +113,7 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 	if l.updatedLlamaCpp {
 		binPath = l.updatedServerStoragePath
 	}
-	llamaCppArgs := []string{"--model", modelPath, "--jinja"}
+	llamaCppArgs := []string{"--model", modelPath, "--jinja", "-ngl", "100"}
 	if mode == inference.BackendModeEmbedding {
 		llamaCppArgs = append(llamaCppArgs, "--embeddings")
 	}
