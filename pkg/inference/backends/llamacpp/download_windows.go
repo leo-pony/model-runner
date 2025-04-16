@@ -13,9 +13,13 @@ func ensureLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient *h
 	llamaCppPath, vendoredServerStoragePath string,
 ) error {
 	nvGPUInfoBin := filepath.Join(vendoredServerStoragePath, "com.docker.nv-gpu-info.exe")
-	canUseCUDA11, err := hasCUDA11CapableGPU(ctx, nvGPUInfoBin)
-	if err != nil {
-		return fmt.Errorf("failed to check CUDA 11 capability: %w", err)
+	var canUseCUDA11 bool
+	var err error
+	if ShouldUseGPUVariant {
+		canUseCUDA11, err = hasCUDA11CapableGPU(ctx, nvGPUInfoBin)
+		if err != nil {
+			return fmt.Errorf("failed to check CUDA 11 capability: %w", err)
+		}
 	}
 	desiredVersion := "latest"
 	desiredVariant := "cpu"

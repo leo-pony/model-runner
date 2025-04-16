@@ -23,6 +23,8 @@ const (
 	hubRepo      = "docker-model-backend-llamacpp"
 )
 
+var ShouldUseGPUVariant bool
+
 func downloadLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient *http.Client,
 	llamaCppPath, vendoredServerStoragePath, desiredVersion, desiredVariant string,
 ) error {

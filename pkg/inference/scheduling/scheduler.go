@@ -196,6 +196,10 @@ func (s *Scheduler) handleOpenAIInference(w http.ResponseWriter, r *http.Request
 	runner.ServeHTTP(w, upstreamRequest)
 }
 
+func (s *Scheduler) ResetInstaller(httpClient *http.Client) {
+	s.installer = newInstaller(s.log, s.backends, httpClient)
+}
+
 // ServeHTTP implements net/http.Handler.ServeHTTP.
 func (s *Scheduler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.router.ServeHTTP(w, r)
