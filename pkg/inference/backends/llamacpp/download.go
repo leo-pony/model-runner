@@ -71,8 +71,7 @@ func downloadLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient 
 	if err != nil {
 		return fmt.Errorf("failed to read bundled llama.cpp version: %w", err)
 	} else if strings.TrimSpace(string(data)) == latest {
-		log.Infoln("bundled llama.cpp version is up to date")
-		return nil
+		return errors.New("bundled llama.cpp version is up to date, no need to update")
 	}
 
 	data, err = os.ReadFile(currentVersionFile)
