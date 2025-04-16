@@ -126,8 +126,9 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 		"DD_INF_UDS="+socket,
 	)
 	llamaCppProcess.Cancel = func() error {
-		// TODO: Figure out the correct process to send on Windows if/when we
-		// port this backend there.
+		if runtime.GOOS == "windows" {
+			return llamaCppProcess.Process.Kill()
+		}
 		return llamaCppProcess.Process.Signal(os.Interrupt)
 	}
 	serverLogStream := l.serverLog.Writer()
