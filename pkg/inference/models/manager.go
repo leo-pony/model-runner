@@ -133,7 +133,12 @@ func (m *Manager) handleCreateModel(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid model reference", http.StatusBadRequest)
 			return
 		}
-		if errors.Is(err, distribution.ErrUnauthorized) || errors.Is(err, distribution.ErrModelNotFound) {
+		if errors.Is(err, distribution.ErrUnauthorized) {
+			m.log.Warnf("Unauthorized to pull model %q: %v", request.From, err)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if errors.Is(err, distribution.ErrModelNotFound) {
 			m.log.Warnf("Failed to pull model %q: %v", request.From, err)
 			http.Error(w, "Model not found", http.StatusNotFound)
 			return
@@ -369,7 +374,7 @@ func (m *Manager) handlePushModel(w http.ResponseWriter, r *http.Request, model 
 			return
 		}
 		if errors.Is(err, distribution.ErrUnauthorized) {
-			m.log.Warnf("Failed to push model %q: %v", model, err)
+			m.log.Warnf("Unauthorized to push model %q: %v", model, err)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
