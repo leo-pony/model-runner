@@ -368,6 +368,11 @@ func (m *Manager) handlePushModel(w http.ResponseWriter, r *http.Request, model 
 			http.Error(w, "Model not found", http.StatusNotFound)
 			return
 		}
+		if errors.Is(err, distribution.ErrUnauthorized) {
+			m.log.Warnf("Failed to push model %q: %v", model, err)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
