@@ -94,7 +94,7 @@ func (m *Manager) routeHandlers() map[string]http.HandlerFunc {
 		"GET " + inference.ModelsPrefix:                                       m.handleGetModels,
 		"GET " + inference.ModelsPrefix + "/{name...}":                        m.handleGetModel,
 		"DELETE " + inference.ModelsPrefix + "/{name...}":                     m.handleDeleteModel,
-		"POST " + inference.ModelsPrefix + "/{name...}":                       m.handleModelAction,
+		"POST " + inference.ModelsPrefix + "/{nameAndAction...}":              m.handleModelAction,
 		"GET " + inference.InferencePrefix + "/{backend}/v1/models":           m.handleOpenAIGetModels,
 		"GET " + inference.InferencePrefix + "/{backend}/v1/models/{name...}": m.handleOpenAIGetModel,
 		"GET " + inference.InferencePrefix + "/v1/models":                     m.handleOpenAIGetModels,
@@ -294,21 +294,24 @@ func (m *Manager) handleOpenAIGetModel(w http.ResponseWriter, r *http.Request) {
 // handleTagModel handles POST <inference-prefix>/models/{nameAndAction} requests.
 // Action is one of:
 // - tag: tag the model with a repository and tag (e.g. POST <inference-prefix>/models/my-org/my-repo:latest/tag})
+// - push: pushes a tagged model to the registry
 func (m *Manager) handleModelAction(w http.ResponseWriter, r *http.Request) {
-	model, action := path.Split(r.PathValue("name"))
+	model, action := path.Split(r.PathValue("nameAndAction"))
 	model = strings.TrimRight(model, "/")
 	switch action {
 	case "tag":
 		m.handleTagModel(w, r, model)
+	case "push":
+		m.handlePushModel(w, r, model)
 	default:
-		http.Error(w, "route not found", http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("unknown action %q", action), http.StatusNotFound)
 	}
 }
 
 // handleTagModel handles POST <inference-prefix>/models/{name}/tag requests.
 // The query parameters are:
 // - repo: the repository to tag the model with (required)
-// - tag: the tag to tag the model with (optional, defaults to "latest")
+// - tag: the tag to tag the model with (optional, implies "latest")
 func (m *Manager) handleTagModel(w http.ResponseWriter, r *http.Request, model string) {
 	if m.distributionClient == nil {
 		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
@@ -323,9 +326,6 @@ func (m *Manager) handleTagModel(w http.ResponseWriter, r *http.Request, model s
 	if repo == "" {
 		http.Error(w, "missing repo or tag query parameter", http.StatusBadRequest)
 		return
-	}
-	if tag == "" {
-		tag = "latest"
 	}
 
 	// Construct the target string.
@@ -347,6 +347,30 @@ func (m *Manager) handleTagModel(w http.ResponseWriter, r *http.Request, model s
 	// Respond with success.
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(fmt.Sprintf("Model %q tagged successfully with %q", model, target)))
+}
+
+// handlePushModel handles POST <inference-prefix>/models/{name}/push requests.
+func (m *Manager) handlePushModel(w http.ResponseWriter, r *http.Request, model string) {
+	if m.distributionClient == nil {
+		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Call the PushModel method on the distribution client.
+	if err := m.PushModel(r.Context(), model, w); err != nil {
+		if errors.Is(err, distribution.ErrInvalidReference) {
+			m.log.Warnf("Invalid model reference %q: %v", model, err)
+			http.Error(w, "Invalid model reference", http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, distribution.ErrModelNotFound) {
+			m.log.Warnf("Failed to push model %q: %v", model, err)
+			http.Error(w, "Model not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 // ServeHTTP implement net/http.Handler.ServeHTTP.
@@ -412,6 +436,36 @@ func (m *Manager) PullModel(ctx context.Context, model string, w http.ResponseWr
 	err := m.distributionClient.PullModel(ctx, model, progressWriter)
 	if err != nil {
 		return fmt.Errorf("error while pulling model: %w", err)
+	}
+
+	return nil
+}
+
+// PushModel pushes a model from the store to the registry.
+func (m *Manager) PushModel(ctx context.Context, model string, w http.ResponseWriter) error {
+	// Set up response headers for streaming
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Transfer-Encoding", "chunked")
+
+	// Create a flusher to ensure chunks are sent immediately
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		return fmt.Errorf("streaming not supported")
+	}
+
+	// Create a progress writer that writes to the response
+	progressWriter := &progressResponseWriter{
+		writer:  w,
+		flusher: flusher,
+	}
+
+	// Pull the model using the Docker model distribution client
+	m.log.Infoln("Pushing model:", model)
+	err := m.distributionClient.PushModel(ctx, model, progressWriter)
+	if err != nil {
+		return fmt.Errorf("error while pushing model: %w", err)
 	}
 
 	return nil
