@@ -462,7 +462,7 @@ func (m *Manager) PushModel(ctx context.Context, model string, w http.ResponseWr
 	// Create a flusher to ensure chunks are sent immediately
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		return fmt.Errorf("streaming not supported")
+		return errors.New("streaming not supported")
 	}
 
 	// Create a progress writer that writes to the response
