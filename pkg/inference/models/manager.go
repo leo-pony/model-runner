@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"path"
+	"strings"
 
 	"github.com/docker/model-distribution/distribution"
 	"github.com/docker/model-distribution/types"
@@ -92,7 +94,7 @@ func (m *Manager) routeHandlers() map[string]http.HandlerFunc {
 		"GET " + inference.ModelsPrefix:                                       m.handleGetModels,
 		"GET " + inference.ModelsPrefix + "/{name...}":                        m.handleGetModel,
 		"DELETE " + inference.ModelsPrefix + "/{name...}":                     m.handleDeleteModel,
-		"POST " + inference.ModelsPrefix + "/{name}/tag":                      m.handleTagModel,
+		"POST " + inference.ModelsPrefix + "/{name...}":                       m.handleModelAction,
 		"GET " + inference.InferencePrefix + "/{backend}/v1/models":           m.handleOpenAIGetModels,
 		"GET " + inference.InferencePrefix + "/{backend}/v1/models/{name...}": m.handleOpenAIGetModel,
 		"GET " + inference.InferencePrefix + "/v1/models":                     m.handleOpenAIGetModels,
@@ -289,18 +291,29 @@ func (m *Manager) handleOpenAIGetModel(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleTagModel handles POST <inference-prefix>/models/{nameAndAction} requests.
+// Action is one of:
+// - tag: tag the model with a repository and tag (e.g. POST <inference-prefix>/models/my-org/my-repo:latest/tag})
+func (m *Manager) handleModelAction(w http.ResponseWriter, r *http.Request) {
+	model, action := path.Split(r.PathValue("name"))
+	model = strings.TrimRight(model, "/")
+	switch action {
+	case "tag":
+		m.handleTagModel(w, r, model)
+	default:
+		http.Error(w, "route not found", http.StatusNotFound)
+	}
+}
+
 // handleTagModel handles POST <inference-prefix>/models/{name}/tag requests.
 // The query parameters are:
 // - repo: the repository to tag the model with (required)
 // - tag: the tag to tag the model with (optional, defaults to "latest")
-func (m *Manager) handleTagModel(w http.ResponseWriter, r *http.Request) {
+func (m *Manager) handleTagModel(w http.ResponseWriter, r *http.Request, model string) {
 	if m.distributionClient == nil {
 		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
 		return
 	}
-
-	// Extract the model name from the request path.
-	model := r.PathValue("name")
 
 	// Extract query parameters.
 	repo := r.URL.Query().Get("repo")
@@ -333,7 +346,7 @@ func (m *Manager) handleTagModel(w http.ResponseWriter, r *http.Request) {
 
 	// Respond with success.
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(fmt.Sprintf("Model %q tagged successfully with source %q", modelName, model)))
+	w.Write([]byte(fmt.Sprintf("Model %q tagged successfully with %q", model, target)))
 }
 
 // ServeHTTP implement net/http.Handler.ServeHTTP.
