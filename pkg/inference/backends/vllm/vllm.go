@@ -54,3 +54,7 @@ func (v *vLLM) Run(ctx context.Context, socket, model string, mode inference.Bac
 	v.log.Warn("vLLM backend is not yet supported")
 	return errors.New("not implemented")
 }
+
+func (v *vLLM) Status() string {
+	return "not running"
+}

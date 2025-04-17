@@ -34,6 +34,8 @@ type llamaCpp struct {
 	// updatedServerStoragePath is the parent path of the updated version of com.docker.llama-server.
 	// It is also where updates will be stored when downloaded.
 	updatedServerStoragePath string
+	// status is the state in which the llama.cpp backend is in.
+	status string
 }
 
 // New creates a new llama.cpp-based backend.
@@ -66,21 +68,33 @@ func (l *llamaCpp) UsesExternalModelManagement() bool {
 
 // Install implements inference.Backend.Install.
 func (l *llamaCpp) Install(ctx context.Context, httpClient *http.Client) error {
+	l.updatedLlamaCpp = false
+
 	// We don't currently support this backend on Windows or Linux. We'll likely
 	// never support it on Intel Macs.
-	if runtime.GOOS == "windows" || runtime.GOOS == "linux" {
+	if runtime.GOOS == "linux" {
 		return errors.New("not implemented")
-	} else if runtime.GOOS == "darwin" && runtime.GOARCH == "amd64" {
+	} else if (runtime.GOOS == "darwin" && runtime.GOARCH == "amd64") || (runtime.GOOS == "windows" && runtime.GOARCH == "arm64") {
 		return errors.New("platform not supported")
 	}
 
+	llamaServerBin := "com.docker.llama-server"
+	if runtime.GOOS == "windows" {
+		llamaServerBin = "com.docker.llama-server.exe"
+	}
+
+	l.status = "installing"
+
 	// Temporary workaround for dynamically downloading llama.cpp from Docker Hub.
-	// Internet access and an available docker/docker-model-backend-llamacpp:latest-update on Docker Hub are required.
-	// Even if docker/docker-model-backend-llamacpp:latest-update has been downloaded before, we still require its
+	// Internet access and an available docker/docker-model-backend-llamacpp:latest on Docker Hub are required.
+	// Even if docker/docker-model-backend-llamacpp:latest has been downloaded before, we still require its
 	// digest to be equal to the one on Docker Hub.
-	llamaCppPath := filepath.Join(l.updatedServerStoragePath, "com.docker.llama-server")
-	if err := ensureLatestLlamaCpp(ctx, l.log, httpClient, llamaCppPath); err != nil {
+	llamaCppPath := filepath.Join(l.updatedServerStoragePath, llamaServerBin)
+	if err := l.ensureLatestLlamaCpp(ctx, l.log, httpClient, llamaCppPath, l.vendoredServerStoragePath); err != nil {
 		l.log.Infof("failed to ensure latest llama.cpp: %v\n", err)
+		if !errors.Is(err, errLlamaCppUpToDate) {
+			l.status = fmt.Sprintf("failed to install llama.cpp: %v", err)
+		}
 		if errors.Is(err, context.Canceled) {
 			return err
 		}
@@ -108,7 +122,7 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 	if l.updatedLlamaCpp {
 		binPath = l.updatedServerStoragePath
 	}
-	llamaCppArgs := []string{"--model", modelPath, "--jinja"}
+	llamaCppArgs := []string{"--model", modelPath, "--jinja", "-ngl", "100"}
 	if mode == inference.BackendModeEmbedding {
 		llamaCppArgs = append(llamaCppArgs, "--embeddings")
 	}
@@ -121,8 +135,9 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 		"DD_INF_UDS="+socket,
 	)
 	llamaCppProcess.Cancel = func() error {
-		// TODO: Figure out the correct process to send on Windows if/when we
-		// port this backend there.
+		if runtime.GOOS == "windows" {
+			return llamaCppProcess.Process.Kill()
+		}
 		return llamaCppProcess.Process.Signal(os.Interrupt)
 	}
 	serverLogStream := l.serverLog.Writer()
@@ -158,4 +173,8 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 		}
 		return fmt.Errorf("llama.cpp terminated unexpectedly: %w", llamaCppErr)
 	}
+}
+
+func (l *llamaCpp) Status() string {
+	return l.status
 }

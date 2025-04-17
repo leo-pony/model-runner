@@ -3,6 +3,7 @@ package llamacpp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/docker/model-runner/pkg/internal/dockerhub"
 	"github.com/docker/model-runner/pkg/logging"
@@ -22,7 +24,15 @@ const (
 	hubRepo      = "docker-model-backend-llamacpp"
 )
 
-func ensureLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient *http.Client, llamaCppPath string) error {
+var (
+	ShouldUseGPUVariant     bool
+	ShouldUseGPUVariantLock sync.Mutex
+	errLlamaCppUpToDate     = errors.New("bundled llama.cpp version is up to date, no need to update")
+)
+
+func (l *llamaCpp) downloadLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient *http.Client,
+	llamaCppPath, vendoredServerStoragePath, desiredVersion, desiredVariant string,
+) error {
 	url := fmt.Sprintf("https://hub.docker.com/v2/namespaces/%s/repositories/%s/tags", hubNamespace, hubRepo)
 	resp, err := httpClient.Get(url)
 	if err != nil {
@@ -47,25 +57,39 @@ func ensureLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient *h
 		return fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
+	desiredTag := desiredVersion + "-" + desiredVariant
 	var latest string
 	for _, tag := range response.Results {
-		if tag.Name == "latest-update" {
+		if tag.Name == desiredTag {
 			latest = tag.Digest
 			break
 		}
 	}
 	if latest == "" {
-		return fmt.Errorf("could not find any latest-update tag")
+		return fmt.Errorf("could not find the %s tag", desiredTag)
 	}
 
+	bundledVersionFile := filepath.Join(vendoredServerStoragePath, "com.docker.llama-server.digest")
 	currentVersionFile := filepath.Join(filepath.Dir(llamaCppPath), ".llamacpp_version")
-	data, err := os.ReadFile(currentVersionFile)
+
+	data, err := os.ReadFile(bundledVersionFile)
+	if err != nil {
+		return fmt.Errorf("failed to read bundled llama.cpp version: %w", err)
+	} else if strings.TrimSpace(string(data)) == latest {
+		l.status = fmt.Sprintf("running llama.cpp %s (%s) version: %s",
+			desiredTag, latest, getLlamaCppVersion(log, filepath.Join(vendoredServerStoragePath, "com.docker.llama-server")))
+		return errLlamaCppUpToDate
+	}
+
+	data, err = os.ReadFile(currentVersionFile)
 	if err != nil {
 		log.Warnf("failed to read current llama.cpp version: %v", err)
 		log.Warnf("proceeding to update llama.cpp binary")
 	} else if strings.TrimSpace(string(data)) == latest {
 		log.Infoln("current llama.cpp version is already up to date")
 		if _, err := os.Stat(llamaCppPath); err == nil {
+			l.status = fmt.Sprintf("running llama.cpp %s (%s) version: %s",
+				desiredTag, latest, getLlamaCppVersion(log, llamaCppPath))
 			return nil
 		}
 		log.Infoln("llama.cpp binary must be updated, proceeding to update it")
@@ -80,27 +104,44 @@ func ensureLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient *h
 	}
 	defer os.RemoveAll(downloadDir)
 
+	l.status = fmt.Sprintf("downloading %s (%s) variant of llama.cpp", desiredTag, latest)
 	if err := extractFromImage(ctx, log, image, runtime.GOOS, runtime.GOARCH, downloadDir); err != nil {
 		return fmt.Errorf("could not extract image: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(llamaCppPath), 0o755); err != nil {
-		return fmt.Errorf("could not create directory for llama.cpp binary: %w", err)
+	if err := os.RemoveAll(filepath.Dir(llamaCppPath)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to clear inference binary dir: %w", err)
 	}
-	rootDir := "com.docker.llama-server.native.darwin.metal.arm64"
-	if err := os.Rename(fmt.Sprintf("%s/%s/%s", downloadDir, rootDir, "bin/com.docker.llama-server"), llamaCppPath); err != nil {
+	if err := os.RemoveAll(filepath.Join(filepath.Dir(filepath.Dir(llamaCppPath)), "lib")); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to clear inference library dir: %w", err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(filepath.Dir(llamaCppPath)), 0o755); err != nil {
+		return fmt.Errorf("could not create directory for llama.cpp artifacts: %w", err)
+	}
+
+	rootDir := fmt.Sprintf("com.docker.llama-server.native.%s.%s.%s", runtime.GOOS, desiredVariant, runtime.GOARCH)
+	if err := os.Rename(filepath.Join(downloadDir, rootDir, "bin"), filepath.Dir(llamaCppPath)); err != nil {
 		return fmt.Errorf("could not move llama.cpp binary: %w", err)
 	}
 	if err := os.Chmod(llamaCppPath, 0o755); err != nil {
 		return fmt.Errorf("could not chmod llama.cpp binary: %w", err)
 	}
-	if err := os.Rename(fmt.Sprintf("%s/%s/%s", downloadDir, rootDir, "lib"),
-		filepath.Join(filepath.Dir(filepath.Dir(llamaCppPath)), "lib")); err != nil {
-		return fmt.Errorf("could not move llama.cpp libs: %w", err)
+
+	libDir := filepath.Join(downloadDir, rootDir, "lib")
+	fi, err := os.Stat(libDir)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to stat llama.cpp lib dir: %w", err)
+	}
+	if err == nil && fi.IsDir() {
+		if err := os.Rename(libDir, filepath.Join(filepath.Dir(filepath.Dir(llamaCppPath)), "lib")); err != nil {
+			return fmt.Errorf("could not move llama.cpp libs: %w", err)
+		}
 	}
 
 	log.Infoln("successfully updated llama.cpp binary")
-	log.Infoln("running llama.cpp version:", getLlamaCppVersion(log, llamaCppPath))
+	l.status = fmt.Sprintf("running llama.cpp %s (%s) version: %s", desiredTag, latest, getLlamaCppVersion(log, llamaCppPath))
+	log.Infoln(l.status)
 
 	if err := os.WriteFile(currentVersionFile, []byte(latest), 0o644); err != nil {
 		log.Warnf("failed to save llama.cpp version: %v", err)

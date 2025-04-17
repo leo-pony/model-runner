@@ -67,4 +67,6 @@ type Backend interface {
 	// instead load only the specified model. Backends should still respond to
 	// OpenAI API requests for other models with a 421 error code.
 	Run(ctx context.Context, socket, model string, mode BackendMode) error
+	// Status returns a description of the backend's state.
+	Status() string
 }
