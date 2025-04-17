@@ -121,14 +121,14 @@ func (l *llamaCpp) downloadLatestLlamaCpp(ctx context.Context, log logging.Logge
 	}
 
 	rootDir := fmt.Sprintf("com.docker.llama-server.native.%s.%s.%s", runtime.GOOS, desiredVariant, runtime.GOARCH)
-	if err := os.Rename(fmt.Sprintf("%s/%s/%s", downloadDir, rootDir, "bin"), filepath.Dir(llamaCppPath)); err != nil {
+	if err := os.Rename(filepath.Join(downloadDir, rootDir, "bin"), filepath.Dir(llamaCppPath)); err != nil {
 		return fmt.Errorf("could not move llama.cpp binary: %w", err)
 	}
 	if err := os.Chmod(llamaCppPath, 0o755); err != nil {
 		return fmt.Errorf("could not chmod llama.cpp binary: %w", err)
 	}
 
-	libDir := fmt.Sprintf("%s/%s/%s", downloadDir, rootDir, "lib")
+	libDir := filepath.Join(downloadDir, rootDir, "lib")
 	fi, err := os.Stat(libDir)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed to stat llama.cpp lib dir: %w", err)
