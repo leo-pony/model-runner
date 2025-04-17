@@ -66,6 +66,8 @@ func (l *llamaCpp) UsesExternalModelManagement() bool {
 
 // Install implements inference.Backend.Install.
 func (l *llamaCpp) Install(ctx context.Context, httpClient *http.Client) error {
+	l.updatedLlamaCpp = false
+
 	// We don't currently support this backend on Windows or Linux. We'll likely
 	// never support it on Intel Macs.
 	if runtime.GOOS == "linux" {
