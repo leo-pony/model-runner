@@ -54,3 +54,7 @@ func (m *mlx) Run(ctx context.Context, socket, model string, mode inference.Back
 	m.log.Warn("MLX backend is not yet supported")
 	return errors.New("not implemented")
 }
+
+func (m *mlx) Status() string {
+	return "not running"
+}

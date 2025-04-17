@@ -23,9 +23,12 @@ const (
 	hubRepo      = "docker-model-backend-llamacpp"
 )
 
-var ShouldUseGPUVariant bool
+var (
+	ShouldUseGPUVariant bool
+	errLlamaCppUpToDate = errors.New("bundled llama.cpp version is up to date, no need to update")
+)
 
-func downloadLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient *http.Client,
+func (l *llamaCpp) downloadLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient *http.Client,
 	llamaCppPath, vendoredServerStoragePath, desiredVersion, desiredVariant string,
 ) error {
 	url := fmt.Sprintf("https://hub.docker.com/v2/namespaces/%s/repositories/%s/tags", hubNamespace, hubRepo)
@@ -71,7 +74,9 @@ func downloadLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient 
 	if err != nil {
 		return fmt.Errorf("failed to read bundled llama.cpp version: %w", err)
 	} else if strings.TrimSpace(string(data)) == latest {
-		return errors.New("bundled llama.cpp version is up to date, no need to update")
+		l.status = fmt.Sprintf("running llama.cpp %s (%s) version: %s",
+			desiredTag, latest, getLlamaCppVersion(log, filepath.Join(vendoredServerStoragePath, "com.docker.llama-server")))
+		return errLlamaCppUpToDate
 	}
 
 	data, err = os.ReadFile(currentVersionFile)
@@ -81,6 +86,8 @@ func downloadLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient 
 	} else if strings.TrimSpace(string(data)) == latest {
 		log.Infoln("current llama.cpp version is already up to date")
 		if _, err := os.Stat(llamaCppPath); err == nil {
+			l.status = fmt.Sprintf("running llama.cpp %s (%s) version: %s",
+				desiredTag, latest, getLlamaCppVersion(log, llamaCppPath))
 			return nil
 		}
 		log.Infoln("llama.cpp binary must be updated, proceeding to update it")
@@ -95,6 +102,7 @@ func downloadLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient 
 	}
 	defer os.RemoveAll(downloadDir)
 
+	l.status = fmt.Sprintf("downloading %s (%s) variant of llama.cpp", desiredTag, latest)
 	if err := extractFromImage(ctx, log, image, runtime.GOOS, runtime.GOARCH, downloadDir); err != nil {
 		return fmt.Errorf("could not extract image: %w", err)
 	}
@@ -130,7 +138,8 @@ func downloadLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient 
 	}
 
 	log.Infoln("successfully updated llama.cpp binary")
-	log.Infoln("running llama.cpp version:", getLlamaCppVersion(log, llamaCppPath))
+	l.status = fmt.Sprintf("running llama.cpp %s (%s) version: %s", desiredTag, latest, getLlamaCppVersion(log, llamaCppPath))
+	log.Infoln(l.status)
 
 	if err := os.WriteFile(currentVersionFile, []byte(latest), 0o644); err != nil {
 		log.Warnf("failed to save llama.cpp version: %v", err)

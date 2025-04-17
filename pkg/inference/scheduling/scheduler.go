@@ -59,16 +59,16 @@ func NewScheduler(
 		http.Error(w, "not found", http.StatusNotFound)
 	})
 
-	for _, route := range s.GetRoutes() {
-		s.router.HandleFunc(route, s.handleOpenAIInference)
+	for route, handler := range s.routeHandlers() {
+		s.router.HandleFunc(route, handler)
 	}
 
 	// Scheduler successfully initialized.
 	return s
 }
 
-func (s *Scheduler) GetRoutes() []string {
-	return []string{
+func (s *Scheduler) routeHandlers() map[string]http.HandlerFunc {
+	openAIRoutes := []string{
 		"POST " + inference.InferencePrefix + "/{backend}/v1/chat/completions",
 		"POST " + inference.InferencePrefix + "/{backend}/v1/completions",
 		"POST " + inference.InferencePrefix + "/{backend}/v1/embeddings",
@@ -76,6 +76,21 @@ func (s *Scheduler) GetRoutes() []string {
 		"POST " + inference.InferencePrefix + "/v1/completions",
 		"POST " + inference.InferencePrefix + "/v1/embeddings",
 	}
+	m := make(map[string]http.HandlerFunc)
+	for _, route := range openAIRoutes {
+		m[route] = s.handleOpenAIInference
+	}
+	m["GET "+inference.InferencePrefix+"/status"] = s.GetBackendStatus
+	return m
+}
+
+func (s *Scheduler) GetRoutes() []string {
+	routeHandlers := s.routeHandlers()
+	routes := make([]string, 0, len(routeHandlers))
+	for route := range routeHandlers {
+		routes = append(routes, route)
+	}
+	return routes
 }
 
 // Run is the scheduler's main run loop. By the time it returns, all inference
@@ -194,6 +209,15 @@ func (s *Scheduler) handleOpenAIInference(w http.ResponseWriter, r *http.Request
 
 	// Perform the request.
 	runner.ServeHTTP(w, upstreamRequest)
+}
+
+func (s *Scheduler) GetBackendStatus(w http.ResponseWriter, r *http.Request) {
+	status := make(map[string]string)
+	for backendName, backend := range s.backends {
+		status[backendName] = backend.Status()
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(status)
 }
 
 func (s *Scheduler) ResetInstaller(httpClient *http.Client) {

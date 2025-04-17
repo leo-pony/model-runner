@@ -9,7 +9,7 @@ import (
 	"github.com/docker/model-runner/pkg/logging"
 )
 
-func ensureLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient *http.Client,
+func (l *llamaCpp) ensureLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient *http.Client,
 	llamaCppPath, vendoredServerStoragePath string,
 ) error {
 	nvGPUInfoBin := filepath.Join(vendoredServerStoragePath, "com.docker.nv-gpu-info.exe")
@@ -18,6 +18,7 @@ func ensureLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient *h
 	if ShouldUseGPUVariant {
 		canUseCUDA11, err = hasCUDA11CapableGPU(ctx, nvGPUInfoBin)
 		if err != nil {
+			l.status = fmt.Sprintf("failed to check CUDA 11 capability: %v", err)
 			return fmt.Errorf("failed to check CUDA 11 capability: %w", err)
 		}
 	}
@@ -26,6 +27,7 @@ func ensureLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient *h
 	if canUseCUDA11 {
 		desiredVariant = "cuda"
 	}
-	return downloadLatestLlamaCpp(ctx, log, httpClient, llamaCppPath, vendoredServerStoragePath, desiredVersion,
+	l.status = fmt.Sprintf("looking for updates for %s variant", desiredVariant)
+	return l.downloadLatestLlamaCpp(ctx, log, httpClient, llamaCppPath, vendoredServerStoragePath, desiredVersion,
 		desiredVariant)
 }

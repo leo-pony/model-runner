@@ -7,11 +7,11 @@ import (
 	"github.com/docker/model-runner/pkg/logging"
 )
 
-func ensureLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient *http.Client,
+func (l *llamaCpp) ensureLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient *http.Client,
 	llamaCppPath, vendoredServerStoragePath string,
 ) error {
 	desiredVersion := "latest"
 	desiredVariant := "metal"
-	return downloadLatestLlamaCpp(ctx, log, httpClient, llamaCppPath, vendoredServerStoragePath, desiredVersion,
+	return l.downloadLatestLlamaCpp(ctx, log, httpClient, llamaCppPath, vendoredServerStoragePath, desiredVersion,
 		desiredVariant)
 }
