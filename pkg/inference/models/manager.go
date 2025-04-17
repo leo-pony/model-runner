@@ -332,7 +332,7 @@ func (m *Manager) handleTagModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Respond with success.
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(fmt.Sprintf("Model %q tagged successfully with source %q", modelName, model)))
 }
 
