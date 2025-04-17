@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/docker/model-runner/pkg/internal/dockerhub"
 	"github.com/docker/model-runner/pkg/logging"
@@ -25,6 +26,7 @@ const (
 
 var (
 	ShouldUseGPUVariant bool
+	ShouldUseGPUVariantLock sync.Mutex
 	errLlamaCppUpToDate = errors.New("bundled llama.cpp version is up to date, no need to update")
 )
 

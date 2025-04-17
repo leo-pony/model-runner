@@ -15,6 +15,8 @@ func (l *llamaCpp) ensureLatestLlamaCpp(ctx context.Context, log logging.Logger,
 	nvGPUInfoBin := filepath.Join(vendoredServerStoragePath, "com.docker.nv-gpu-info.exe")
 	var canUseCUDA11 bool
 	var err error
+	ShouldUseGPUVariantLock.Lock()
+	defer ShouldUseGPUVariantLock.Unlock()
 	if ShouldUseGPUVariant {
 		canUseCUDA11, err = hasCUDA11CapableGPU(ctx, nvGPUInfoBin)
 		if err != nil {
