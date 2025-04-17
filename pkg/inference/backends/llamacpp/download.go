@@ -25,9 +25,9 @@ const (
 )
 
 var (
-	ShouldUseGPUVariant bool
+	ShouldUseGPUVariant     bool
 	ShouldUseGPUVariantLock sync.Mutex
-	errLlamaCppUpToDate = errors.New("bundled llama.cpp version is up to date, no need to update")
+	errLlamaCppUpToDate     = errors.New("bundled llama.cpp version is up to date, no need to update")
 )
 
 func (l *llamaCpp) downloadLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient *http.Client,
