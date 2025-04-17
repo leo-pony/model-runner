@@ -55,3 +55,7 @@ func hasCUDA11CapableGPU(ctx context.Context, nvGPUInfoBin string) (bool, error)
 	}
 	return false, nil
 }
+
+func CanUseGPU(ctx context.Context, nvGPUInfoBin string) (bool, error) {
+	return hasCUDA11CapableGPU(ctx, nvGPUInfoBin)
+}
