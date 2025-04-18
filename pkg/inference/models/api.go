@@ -48,7 +48,10 @@ func ToOpenAI(m types.Model) (*OpenAIModel, error) {
 		created = desc.Created.Unix()
 	}
 
-	id := ""
+	id, err := m.ID()
+	if err != nil {
+		return nil, fmt.Errorf("get model ID: %w", err)
+	}
 	if tags := m.Tags(); len(tags) > 0 {
 		id = tags[0]
 	}
