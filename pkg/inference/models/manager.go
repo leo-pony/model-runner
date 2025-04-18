@@ -8,6 +8,7 @@ import (
 	"html"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/docker/model-distribution/distribution"
@@ -210,6 +211,8 @@ func (m *Manager) handleGetModel(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleDeleteModel handles DELETE <inference-prefix>/models/{name} requests.
+// query params:
+// - force: if true, delete the model even if it has multiple tags
 func (m *Manager) handleDeleteModel(w http.ResponseWriter, r *http.Request) {
 	if m.distributionClient == nil {
 		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
@@ -225,10 +228,22 @@ func (m *Manager) handleDeleteModel(w http.ResponseWriter, r *http.Request) {
 	// the runner process exits (though this won't work for Windows, where we
 	// might need some separate cleanup process).
 
-	err := m.distributionClient.DeleteModel(r.PathValue("name"))
-	if err != nil {
+	var force bool
+	if r.URL.Query().Has("force") {
+		if val, err := strconv.ParseBool(r.URL.Query().Get("force")); err != nil {
+			m.log.Warnln("Error while parsing force query parameter:", err)
+		} else {
+			force = val
+		}
+	}
+
+	if err := m.distributionClient.DeleteModel(r.PathValue("name"), force); err != nil {
 		if errors.Is(err, distribution.ErrModelNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, distribution.ErrConflict) {
+			http.Error(w, err.Error(), http.StatusConflict)
 			return
 		}
 		m.log.Warnln("Error while deleting model:", err)
