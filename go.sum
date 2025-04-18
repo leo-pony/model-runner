@@ -37,8 +37,8 @@ github.com/docker/distribution v2.8.3+incompatible h1:AtKxIZ36LoNK51+Z6RpzLpddBi
 github.com/docker/distribution v2.8.3+incompatible/go.mod h1:J2gT2udsDAN96Uj4KfcMRqY0/ypR+oyYUYmja8H+y+w=
 github.com/docker/docker-credential-helpers v0.8.2 h1:bX3YxiGzFP5sOXWc3bTPEXdEaZSeVMrFgOr3T+zrFAo=
 github.com/docker/docker-credential-helpers v0.8.2/go.mod h1:P3ci7E3lwkZg6XiHdRKft1KckHiO9a2rNtyFbZ/ry9M=
-github.com/docker/model-distribution v0.0.0-20250418220155-bf3bed0d69b0 h1:p64u8SbT6qGcD5GcUkxkvjtm7LTHUpHUPtPE+7PBcTo=
-github.com/docker/model-distribution v0.0.0-20250418220155-bf3bed0d69b0/go.mod h1:fd9H/2KAY0+ByxbohWfCkxp0rxf0pqSlHEtFTjTXbLk=
+github.com/docker/model-distribution v0.0.0-20250418222450-8f6c05a5ffa4 h1:v7DyBUd08t4XQe4NC2Rb8ZSWOiWVXD0TbdgIOQZ/IQo=
+github.com/docker/model-distribution v0.0.0-20250418222450-8f6c05a5ffa4/go.mod h1:fd9H/2KAY0+ByxbohWfCkxp0rxf0pqSlHEtFTjTXbLk=
 github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2Wg=
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
