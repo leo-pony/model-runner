@@ -316,7 +316,7 @@ func (m *Manager) handleModelAction(w http.ResponseWriter, r *http.Request) {
 // handleTagModel handles POST <inference-prefix>/models/{name}/tag requests.
 // The query parameters are:
 // - repo: the repository to tag the model with (required)
-// - tag: the tag to tag the model with (optional, implies "latest")
+// - tag: the tag to apply to the model (required)
 func (m *Manager) handleTagModel(w http.ResponseWriter, r *http.Request, model string) {
 	if m.distributionClient == nil {
 		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
@@ -328,7 +328,7 @@ func (m *Manager) handleTagModel(w http.ResponseWriter, r *http.Request, model s
 	tag := r.URL.Query().Get("tag")
 
 	// Validate query parameters.
-	if repo == "" {
+	if repo == "" || tag == "" {
 		http.Error(w, "missing repo or tag query parameter", http.StatusBadRequest)
 		return
 	}
@@ -338,7 +338,7 @@ func (m *Manager) handleTagModel(w http.ResponseWriter, r *http.Request, model s
 
 	// Call the Tag method on the distribution client with source and modelName.
 	if err := m.distributionClient.Tag(model, target); err != nil {
-		m.log.Warnf("Failed to tag model %q: %v", model, err)
+		m.log.Warnf("Failed to apply tag %q to model %q: %v", target, model, err)
 
 		if errors.Is(err, distribution.ErrModelNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
