@@ -33,7 +33,8 @@ var (
 func (l *llamaCpp) downloadLatestLlamaCpp(ctx context.Context, log logging.Logger, httpClient *http.Client,
 	llamaCppPath, vendoredServerStoragePath, desiredVersion, desiredVariant string,
 ) error {
-	url := fmt.Sprintf("https://hub.docker.com/v2/namespaces/%s/repositories/%s/tags", hubNamespace, hubRepo)
+	desiredTag := desiredVersion + "-" + desiredVariant
+	url := fmt.Sprintf("https://hub.docker.com/v2/namespaces/%s/repositories/%s/tags/%s", hubNamespace, hubRepo, desiredTag)
 	resp, err := httpClient.Get(url)
 	if err != nil {
 		return err
@@ -45,25 +46,19 @@ func (l *llamaCpp) downloadLatestLlamaCpp(ctx context.Context, log logging.Logge
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	// https://docs.docker.com/reference/api/hub/latest/#tag/repositories/paths/~1v2~1namespaces~1%7Bnamespace%7D~1repositories~1%7Brepository%7D~1tags/get
+	// https://docs.docker.com/reference/api/hub/latest/#tag/repositories/paths/~1v2~1namespaces~1%7Bnamespace%7D~1repositories~1%7Brepository%7D~1tags~1%7Btag%7D/get
 	var response struct {
-		Results []struct {
-			Name   string `json:"name"`
-			Digest string `json:"digest"`
-		}
+		Name   string `json:"name"`
+		Digest string `json:"digest"`
 	}
 
 	if err := json.Unmarshal(body, &response); err != nil {
 		return fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
-	desiredTag := desiredVersion + "-" + desiredVariant
 	var latest string
-	for _, tag := range response.Results {
-		if tag.Name == desiredTag {
-			latest = tag.Digest
-			break
-		}
+	if response.Name == desiredTag {
+		latest = response.Digest
 	}
 	if latest == "" {
 		return fmt.Errorf("could not find the %s tag", desiredTag)
