@@ -14,7 +14,7 @@ func (l *llamaCpp) ensureLatestLlamaCpp(ctx context.Context, log logging.Logger,
 	llamaCppPath, vendoredServerStoragePath string,
 ) error {
 	nvGPUInfoBin := filepath.Join(vendoredServerStoragePath, "com.docker.nv-gpu-info.exe")
-	var canUseCUDA11 bool
+	var canUseCUDA11, canUseOpenCL bool
 	var err error
 	ShouldUseGPUVariantLock.Lock()
 	defer ShouldUseGPUVariantLock.Unlock()
@@ -25,15 +25,19 @@ func (l *llamaCpp) ensureLatestLlamaCpp(ctx context.Context, log logging.Logger,
 				l.status = fmt.Sprintf("failed to check CUDA 11 capability: %v", err)
 				return fmt.Errorf("failed to check CUDA 11 capability: %w", err)
 			}
+		} else if runtime.GOARCH == "arm64" {
+			canUseOpenCL, err = hasOpenCL()
+			if err != nil {
+				l.status = fmt.Sprintf("failed to check OpenCL capability: %v", err)
+				return fmt.Errorf("failed to check OpenCL capability: %w", err)
+			}
 		}
 	}
 	desiredVersion := "latest"
 	desiredVariant := "cpu"
 	if canUseCUDA11 {
 		desiredVariant = "cuda"
-	}
-	// TODO(p1-0tr): we should auto-detect if we can use opencl, but for now assume that we can
-	if runtime.GOARCH == "arm64" {
+	} else if canUseOpenCL {
 		desiredVariant = "opencl"
 	}
 	l.status = fmt.Sprintf("looking for updates for %s variant", desiredVariant)

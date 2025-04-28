@@ -3,10 +3,12 @@ package llamacpp
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/jaypipes/ghw"
 )
@@ -56,6 +58,27 @@ func hasCUDA11CapableGPU(ctx context.Context, nvGPUInfoBin string) (bool, error)
 	return false, nil
 }
 
+func hasOpenCL() (bool, error) {
+	opencl, err := syscall.LoadLibrary("OpenCL.dll")
+	if err != nil {
+		if errors.Is(err, syscall.ERROR_MOD_NOT_FOUND) {
+			return false, nil
+		}
+		return false, fmt.Errorf("unable to load OpenCL DLL: %w", err)
+	}
+	// We could perform additional platform and device version checks here (if
+	// we scaffold out the relevant OpenCL API datatypes in Go), but since users
+	// can opt-out of GPU support, we can probably skip that and just let users
+	// disable it if things don't work. Alternatively, we could inspect the GPUs
+	// found by the ghw package, if it supports (e.g.) Adreno GPUs.
+	syscall.FreeLibrary(opencl)
+	return true, nil
+}
+
 func CanUseGPU(ctx context.Context, nvGPUInfoBin string) (bool, error) {
-	return hasCUDA11CapableGPU(ctx, nvGPUInfoBin)
+	haveCUDA11GPU, err := hasCUDA11CapableGPU(ctx, nvGPUInfoBin)
+	if haveCUDA11GPU || err != nil {
+		return haveCUDA11GPU, err
+	}
+	return hasOpenCL()
 }
