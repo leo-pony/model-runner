@@ -71,11 +71,9 @@ func (l *llamaCpp) UsesExternalModelManagement() bool {
 func (l *llamaCpp) Install(ctx context.Context, httpClient *http.Client) error {
 	l.updatedLlamaCpp = false
 
-	// We don't currently support this backend on Windows or Linux. We'll likely
+	// We don't currently support this backend on Windows. We'll likely
 	// never support it on Intel Macs.
-	if runtime.GOOS == "linux" {
-		return errors.New("not implemented")
-	} else if (runtime.GOOS == "darwin" && runtime.GOARCH == "amd64") ||
+	if (runtime.GOOS == "darwin" && runtime.GOARCH == "amd64") ||
 		(runtime.GOOS == "windows" && !(runtime.GOARCH == "amd64" || runtime.GOARCH == "arm64")) {
 		return errors.New("platform not supported")
 	}

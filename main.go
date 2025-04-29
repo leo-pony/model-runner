@@ -32,16 +32,28 @@ func main() {
 		log.Fatalf("Failed to get user home directory: %v", err)
 	}
 
+	modelPath := os.Getenv("MODELS_PATH")
+	if modelPath == "" {
+		modelPath = filepath.Join(userHomeDir, ".docker", "models")
+	}
+
 	modelManager := models.NewManager(log, models.ClientConfig{
-		StoreRootPath: filepath.Join(userHomeDir, ".docker", "models"),
+		StoreRootPath: modelPath,
 		Logger:        log.WithFields(logrus.Fields{"component": "model-manager"}),
 	})
+
+	llamaServerPath := os.Getenv("LLAMA_SERVER_PATH")
+	if llamaServerPath == "" {
+		llamaServerPath = "/Applications/Docker.app/Contents/Resources/bin"
+	}
+
+	log.Infof("LLAMA_SERVER_PATH: %s", llamaServerPath)
 
 	llamaCppBackend, err := llamacpp.New(
 		log,
 		modelManager,
 		log.WithFields(logrus.Fields{"component": "llama.cpp"}),
-		"/Applications/Docker.app/Contents/Resources/bin",
+		llamaServerPath,
 		func() string { wd, _ := os.Getwd(); return wd }(),
 	)
 	if err != nil {
@@ -64,22 +76,34 @@ func main() {
 		router.Handle(route, scheduler)
 	}
 
-	if err := os.Remove(sockName); err != nil {
-		if !os.IsNotExist(err) {
-			log.Fatalf("Failed to remove existing socket: %v", err)
-		}
-	}
-	ln, err := net.ListenUnix("unix", &net.UnixAddr{Name: sockName, Net: "unix"})
-	if err != nil {
-		log.Fatalf("Failed to listen on socket: %v", err)
-	}
-
 	server := &http.Server{Handler: router}
 	serverErrors := make(chan error, 1)
-	go func() {
-		serverErrors <- server.Serve(ln)
-	}()
-	defer server.Close()
+
+	// Check if we should use TCP port instead of Unix socket
+	tcpPort := os.Getenv("MODEL_RUNNER_PORT")
+	if tcpPort != "" {
+		// Use TCP port
+		addr := ":" + tcpPort
+		log.Infof("Listening on TCP port %s", tcpPort)
+		server.Addr = addr
+		go func() {
+			serverErrors <- server.ListenAndServe()
+		}()
+	} else {
+		// Use Unix socket
+		if err := os.Remove(sockName); err != nil {
+			if !os.IsNotExist(err) {
+				log.Fatalf("Failed to remove existing socket: %v", err)
+			}
+		}
+		ln, err := net.ListenUnix("unix", &net.UnixAddr{Name: sockName, Net: "unix"})
+		if err != nil {
+			log.Fatalf("Failed to listen on socket: %v", err)
+		}
+		go func() {
+			serverErrors <- server.Serve(ln)
+		}()
+	}
 
 	schedulerErrors := make(chan error, 1)
 	go func() {

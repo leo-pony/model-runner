@@ -23,61 +23,80 @@ The Makefile provides the following targets:
 - `build` - Build the Go application
 - `run` - Run the application locally
 - `clean` - Clean build artifacts
+- `test` - Run tests
+- `docker-build` - Build the Docker image
+- `docker-run` - Run the application in a Docker container with TCP port access and mounted model storage
 - `help` - Show available targets
 
-### Examples
+### Running in Docker
+
+The application can be run in Docker with the following features enabled by default:
+- TCP port access (default port 8080)
+- Persistent model storage in a local `models` directory
 
 ```sh
-# Build the application
-make build
+# Run with default settings
+make docker-run
 
-# Run the application locally
-make run
-
-# Show all available targets
-make help
+# Customize port and model storage location
+make docker-run PORT=3000 MODELS_PATH=/path/to/your/models
 ```
+
+This will:
+- Create a `models` directory in your current working directory (or use the specified path)
+- Mount this directory into the container
+- Start the service on port 8080 (or the specified port)
+- All models downloaded will be stored in the host's `models` directory and will persist between container runs
+
+### llama.cpp integration
+
+The Docker image includes the llama.cpp server binary from the `docker/docker-model-backend-llamacpp` image. You can specify the version of the image to use by setting the `LLAMA_SERVER_VERSION` variable. Additionally, you can configure the target OS, architecture, and acceleration type:
+
+```sh
+# Build with a specific llama.cpp server version
+LLAMA_SERVER_VERSION=v0.0.4-rc2-cpu make docker-build
+
+# Specify all parameters
+LLAMA_SERVER_VERSION=v0.0.4-rc2-cpu TARGET_OS=linux TARGET_ARCH=amd64 ACCEL=cpu make docker-build
+```
+
+Default values:
+- `LLAMA_SERVER_VERSION`: v0.0.4-rc2-cpu
+- `TARGETOS`: linux
+- `TARGETARCH`: amd64
+- `ACCEL`: cpu
+
+The binary path in the image follows this pattern: `/com.docker.llama-server.native.${TARGETOS}.${ACCEL}.${TARGETARCH}`
 
 ## API Examples
 
-The Model Runner exposes a REST API over a Unix socket. You can interact with it using curl commands with the `--unix-socket` option.
+The Model Runner exposes a REST API that can be accessed via TCP port. You can interact with it using curl commands.
 
-### Listing Models
+### Using the API
 
-To list all available models:
-
-```sh
-curl --unix-socket model-runner.sock localhost/models
-```
-
-### Creating a Model
-
-To create a new model:
+When running with `docker-run`, you can use regular HTTP requests:
 
 ```sh
-curl --unix-socket model-runner.sock localhost/models/create -X POST -d '{"from": "ai/smollm2"}'
-```
+# List all available models
+curl http://localhost:8080/models
 
-### Getting Model Information
+# Create a new model
+curl http://localhost:8080/models/create -X POST -d '{"from": "ai/smollm2"}'
 
-To get information about a specific model:
+# Get information about a specific model
+curl http://localhost:8080/models/ai/smollm2
 
-```sh
-curl --unix-socket model-runner.sock localhost/models/ai/smollm2
-```
-
-### Chatting with a Model
-
-To chat with a model, you can send a POST request to the model's chat endpoint:
-
-```sh
-curl --unix-socket model-runner.sock localhost/engines/llama.cpp/v1/chat/completions -X POST -d '{
+# Chat with a model
+curl http://localhost:8080/engines/llama.cpp/v1/chat/completions -X POST -d '{
   "model": "ai/smollm2",
   "messages": [
     {"role": "system", "content": "You are a helpful assistant."},
     {"role": "user", "content": "Hello, how are you?"}
   ]
 }'
+
+# Delete a model
+curl http://localhost:8080/models/ai/smollm2 -X DELETE
 ```
 
 The response will contain the model's reply:
@@ -104,11 +123,4 @@ The response will contain the model's reply:
     "total_tokens": 40
   }
 }
-```
-
-### Deleting a model
-To delete a model from the server, send a DELETE request to the model's endpoint:
-
-```sh
-curl --unix-socket model-runner.sock localhost/models/ai/smollm2 -X DELETE
 ```
