@@ -58,17 +58,6 @@ func hasCUDA11CapableGPU(ctx context.Context, nvGPUInfoBin string) (bool, error)
 	return false, nil
 }
 
-// supportedAdrenoGPUVersions are the Adreno versions supported by llama.cpp.
-// See (and keep in sync with):
-// https://github.com/ggml-org/llama.cpp/blob/43ddab6eeeaab5a04fe5a364af0bafb0e4d35065/ggml/src/ggml-opencl/ggml-opencl.cpp#L180-L196
-var supportedAdrenoGPUVersions = []string{
-	"730",
-	"740",
-	"750",
-	"830",
-	"X1",
-}
-
 func hasSupportedAdrenoGPU() (bool, error) {
 	gpus, err := ghw.GPU()
 	if err != nil {
@@ -77,13 +66,13 @@ func hasSupportedAdrenoGPU() (bool, error) {
 	for _, gpu := range gpus.GraphicsCards {
 		isAdrenoFamily := strings.Contains(gpu.DeviceInfo.Product.Name, "Adreno") ||
 			strings.Contains(gpu.DeviceInfo.Product.Name, "Qualcomm")
-		if !isAdrenoFamily {
-			continue
-		}
-		for _, version := range supportedAdrenoGPUVersions {
-			if strings.Contains(gpu.DeviceInfo.Product.Name, version) {
-				return true, nil
-			}
+		if isAdrenoFamily {
+			// llama.cpp will detect / classify a limited set of Adreno GPU
+			// versions, but it won't actually require a specific version, even
+			// though some, e.g. the 6xx series, won't work. Since we'll have
+			// the ability disable GPU support, we'll allow the model runner to
+			// try optimistically.
+			true, nil
 		}
 	}
 	return false, nil
