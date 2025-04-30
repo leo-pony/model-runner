@@ -1,9 +1,9 @@
 # Project variables
 APP_NAME := model-runner
 GO_VERSION := 1.23.7
-LLAMA_SERVER_VERSION := v0.0.4-rc2-cpu
+LLAMA_SERVER_VERSION := v0.0.4-cpu
 TARGET_OS := linux
-TARGET_ARCH := amd64
+TARGET_ARCH := $(shell uname -m 2>/dev/null || echo "amd64")
 ACCEL := cpu
 DOCKER_IMAGE := go-model-runner:latest
 LLAMA_BINARY := /com.docker.llama-server.native.$(TARGET_OS).$(ACCEL).$(TARGET_ARCH)
@@ -36,7 +36,7 @@ test:
 
 # Build Docker image
 docker-build:
-	docker build --platform linux/amd64 \
+	docker build \
 		--build-arg LLAMA_SERVER_VERSION=$(LLAMA_SERVER_VERSION) \
 		--build-arg LLAMA_BINARY_PATH=$(LLAMA_BINARY) \
 		-t $(DOCKER_IMAGE) .
