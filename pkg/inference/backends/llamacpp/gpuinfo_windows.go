@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -72,7 +73,7 @@ func hasSupportedAdrenoGPU() (bool, error) {
 			// though some, e.g. the 6xx series, won't work. Since we'll have
 			// the ability disable GPU support, we'll allow the model runner to
 			// try optimistically.
-			true, nil
+			return true, nil
 		}
 	}
 	return false, nil
@@ -99,9 +100,13 @@ func hasOpenCL() (bool, error) {
 }
 
 func CanUseGPU(ctx context.Context, nvGPUInfoBin string) (bool, error) {
-	haveCUDA11GPU, err := hasCUDA11CapableGPU(ctx, nvGPUInfoBin)
-	if haveCUDA11GPU || err != nil {
-		return haveCUDA11GPU, err
+	// We don't ship com.docker.nv-gpu-info.exe on Windows/ARM64 at the moment,
+	// so skip the CUDA check there for now. The OpenCL check is portable.
+	if runtime.GOARCH == "amd64" {
+		haveCUDA11GPU, err := hasCUDA11CapableGPU(ctx, nvGPUInfoBin)
+		if haveCUDA11GPU || err != nil {
+			return haveCUDA11GPU, err
+		}
 	}
 	return hasOpenCL()
 }
