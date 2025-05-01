@@ -43,7 +43,7 @@ WORKDIR /app
 
 # Create directories for the socket file and llama.cpp binary, and set proper permissions
 RUN mkdir -p /var/run/model-runner /app/bin /models && \
-    chown -R modelrunner:modelrunner /var/run/model-runner /app/bin /models && \
+    chown -R modelrunner:modelrunner /var/run/model-runner /app /models && \
     chmod -R 755 /models
 
 # Copy the built binary from builder
