@@ -2,7 +2,7 @@
 
 ARG GO_VERSION=1.24.2
 ARG LLAMA_SERVER_VERSION=latest
-ARG LLAMA_BINARY_PATH=/com.docker.llama-server.native.linux.cpu.amd64
+ARG LLAMA_BINARY_PATH=/com.docker.llama-server.native.linux.cpu.${TARGETARCH}
 
 FROM golang:${GO_VERSION}-bookworm AS builder
 
