@@ -51,7 +51,8 @@ COPY --from=builder /app/model-runner /app/model-runner
 
 # Copy the llama.cpp binary from the llama-server stage
 ARG LLAMA_BINARY_PATH
-COPY --from=llama-server ${LLAMA_BINARY_PATH} /app/bin/com.docker.llama-server
+COPY --from=llama-server ${LLAMA_BINARY_PATH}/bin/com.docker.llama-server /app/bin/com.docker.llama-server
+RUN chmod +x /app/bin/com.docker.llama-server
 
 USER modelrunner
 
