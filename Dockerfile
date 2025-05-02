@@ -60,5 +60,6 @@ USER modelrunner
 ENV MODEL_RUNNER_SOCK=/var/run/model-runner/model-runner.sock
 ENV LLAMA_SERVER_PATH=/app/bin
 ENV HOME=/home/modelrunner
+ENV MODELS_PATH=/models
 
 ENTRYPOINT ["/app/model-runner"]
