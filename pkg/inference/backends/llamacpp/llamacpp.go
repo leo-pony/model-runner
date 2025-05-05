@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/exec"
@@ -118,8 +119,8 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 		return fmt.Errorf("failed to get model: %w", err)
 	}
 
-	if err := os.RemoveAll(socket); err != nil {
-		l.log.Warnln("failed to remove socket file %s: %w", socket, err)
+	if err := os.RemoveAll(socket); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		l.log.Warnf("failed to remove socket file %s: %w\n", socket, err)
 		l.log.Warnln("llama.cpp may not be able to start")
 	}
 
@@ -177,8 +178,8 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 		serverLogStream.Close()
 		llamaCppErrors <- llamaCppErr
 		close(llamaCppErrors)
-		if err := os.Remove(socket); err != nil {
-			l.log.Warnln("failed to remove socket file %s on exit: %w", socket, err)
+		if err := os.Remove(socket); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			l.log.Warnf("failed to remove socket file %s on exit: %w\n", socket, err)
 		}
 	}()
 	defer func() {
