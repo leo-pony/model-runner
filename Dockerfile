@@ -2,7 +2,7 @@
 
 ARG GO_VERSION=1.24.2
 ARG LLAMA_SERVER_VERSION=latest
-ARG LLAMA_BINARY_PATH=/com.docker.llama-server.native.linux.cpu.amd64
+ARG LLAMA_BINARY_PATH=/com.docker.llama-server.native.linux.cpu.${TARGETARCH}
 
 FROM golang:${GO_VERSION}-bookworm AS builder
 
@@ -43,7 +43,7 @@ WORKDIR /app
 
 # Create directories for the socket file and llama.cpp binary, and set proper permissions
 RUN mkdir -p /var/run/model-runner /app/bin /models && \
-    chown -R modelrunner:modelrunner /var/run/model-runner /app/bin /models && \
+    chown -R modelrunner:modelrunner /var/run/model-runner /app /models && \
     chmod -R 755 /models
 
 # Copy the built binary from builder
@@ -51,7 +51,8 @@ COPY --from=builder /app/model-runner /app/model-runner
 
 # Copy the llama.cpp binary from the llama-server stage
 ARG LLAMA_BINARY_PATH
-COPY --from=llama-server ${LLAMA_BINARY_PATH} /app/bin/com.docker.llama-server
+COPY --from=llama-server ${LLAMA_BINARY_PATH}/bin/com.docker.llama-server /app/bin/com.docker.llama-server
+RUN chmod +x /app/bin/com.docker.llama-server
 
 USER modelrunner
 
@@ -59,5 +60,6 @@ USER modelrunner
 ENV MODEL_RUNNER_SOCK=/var/run/model-runner/model-runner.sock
 ENV LLAMA_SERVER_PATH=/app/bin
 ENV HOME=/home/modelrunner
+ENV MODELS_PATH=/models
 
 ENTRYPOINT ["/app/model-runner"]
