@@ -3,10 +3,8 @@ APP_NAME := model-runner
 GO_VERSION := 1.23.7
 LLAMA_SERVER_VERSION := v0.0.4-cpu
 TARGET_OS := linux
-TARGET_ARCH := $(shell uname -m 2>/dev/null | sed 's/aarch64/arm64/g' || echo "amd64")
 ACCEL := cpu
-DOCKER_IMAGE := go-model-runner:latest
-LLAMA_BINARY := /com.docker.llama-server.native.$(TARGET_OS).$(ACCEL).$(TARGET_ARCH)
+DOCKER_IMAGE := docker/model-runner:latest
 PORT := 8080
 MODELS_PATH := $(shell pwd)/models
 
@@ -36,9 +34,9 @@ test:
 
 # Build Docker image
 docker-build:
-	docker build \
+	docker buildx build \
+		--platform linux/amd64,linux/arm64 \
 		--build-arg LLAMA_SERVER_VERSION=$(LLAMA_SERVER_VERSION) \
-		--build-arg LLAMA_BINARY_PATH=$(LLAMA_BINARY) \
 		-t $(DOCKER_IMAGE) .
 
 # Run in Docker container with TCP port access and mounted model storage
