@@ -13,6 +13,7 @@ import (
 	"github.com/docker/model-runner/pkg/inference/backends/llamacpp"
 	"github.com/docker/model-runner/pkg/inference/models"
 	"github.com/docker/model-runner/pkg/inference/scheduling"
+	"github.com/docker/model-runner/pkg/routing"
 	"github.com/sirupsen/logrus"
 )
 
@@ -68,7 +69,7 @@ func main() {
 		http.DefaultClient,
 	)
 
-	router := http.NewServeMux()
+	router := routing.NewNormalizedServeMux()
 	for _, route := range modelManager.GetRoutes() {
 		router.Handle(route, modelManager)
 	}
