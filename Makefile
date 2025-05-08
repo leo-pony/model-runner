@@ -1,7 +1,7 @@
 # Project variables
 APP_NAME := model-runner
 GO_VERSION := 1.23.7
-LLAMA_SERVER_VERSION := v0.0.4
+LLAMA_SERVER_VERSION := latest
 LLAMA_SERVER_VARIANT := cpu
 BASE_IMAGE := ubuntu:24.04
 DOCKER_IMAGE := docker/model-runner:latest
