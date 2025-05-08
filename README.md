@@ -54,19 +54,17 @@ The Docker image includes the llama.cpp server binary from the `docker/docker-mo
 
 ```sh
 # Build with a specific llama.cpp server version
-LLAMA_SERVER_VERSION=v0.0.4-rc2-cpu make docker-build
+make docker-build LLAMA_SERVER_VERSION=v0.0.4
 
 # Specify all parameters
-LLAMA_SERVER_VERSION=v0.0.4-rc2-cpu TARGET_OS=linux TARGET_ARCH=amd64 ACCEL=cpu make docker-build
+make docker-build LLAMA_SERVER_VERSION=v0.0.4 LLAMA_SERVER_VARIANT=cpu
 ```
 
 Default values:
-- `LLAMA_SERVER_VERSION`: v0.0.4-rc2-cpu
-- `TARGETOS`: linux
-- `TARGETARCH`: amd64
-- `ACCEL`: cpu
+- `LLAMA_SERVER_VERSION`: latest
+- `LLAMA_SERVER_VARIANT`: cpu
 
-The binary path in the image follows this pattern: `/com.docker.llama-server.native.${TARGETOS}.${ACCEL}.${TARGETARCH}`
+The binary path in the image follows this pattern: `/com.docker.llama-server.native.linux.${LLAMA_SERVER_VARIANT}.${TARGETARCH}`
 
 ## API Examples
 
