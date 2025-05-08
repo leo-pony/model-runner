@@ -57,7 +57,7 @@ The Docker image includes the llama.cpp server binary from the `docker/docker-mo
 LLAMA_SERVER_VERSION=v0.0.4-rc2-cpu make docker-build
 
 # Specify all parameters
-LLAMA_SERVER_VERSION=v0.0.4-rc2-cpu TARGET_OS=linux TARGET_ARCH=amd64 ACCEL=cpu make docker-build
+LLAMA_SERVER_VERSION=v0.0.4-rc2-cpu TARGET_ARCH=amd64 ACCEL=cpu make docker-build
 ```
 
 Default values:

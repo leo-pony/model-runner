@@ -4,7 +4,6 @@ GO_VERSION := 1.23.7
 LLAMA_SERVER_VERSION := v0.0.4
 LLAMA_SERVER_VARIANT := cpu
 BASE_IMAGE := ubuntu:24.04
-TARGET_OS := linux
 ACCEL := cpu
 DOCKER_IMAGE := docker/model-runner:latest
 PORT := 8080
