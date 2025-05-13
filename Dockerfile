@@ -60,6 +60,7 @@ USER modelrunner
 
 # Set the environment variable for the socket path and LLaMA server binary path
 ENV MODEL_RUNNER_SOCK=/var/run/model-runner/model-runner.sock
+ENV MODEL_RUNNER_PORT=12434
 ENV LLAMA_SERVER_PATH=/app/bin
 ENV HOME=/home/modelrunner
 ENV MODELS_PATH=/models
