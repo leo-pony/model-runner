@@ -65,4 +65,7 @@ ENV LLAMA_SERVER_PATH=/app/bin
 ENV HOME=/home/modelrunner
 ENV MODELS_PATH=/models
 
+# Label the image so that it's hidden on cloud engines.
+LABEL com.docker.desktop.service="model-runner"
+
 ENTRYPOINT ["/app/model-runner"]
