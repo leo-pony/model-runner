@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/docker/model-distribution/distribution"
 	"github.com/docker/model-runner/pkg/inference"
@@ -81,6 +82,7 @@ func (s *Scheduler) routeHandlers() map[string]http.HandlerFunc {
 		m[route] = s.handleOpenAIInference
 	}
 	m["GET "+inference.InferencePrefix+"/status"] = s.GetBackendStatus
+	m["GET "+inference.InferencePrefix+"/ps"] = s.GetRunningBackends
 	return m
 }
 
@@ -222,6 +224,46 @@ func (s *Scheduler) GetBackendStatus(w http.ResponseWriter, r *http.Request) {
 
 func (s *Scheduler) ResetInstaller(httpClient *http.Client) {
 	s.installer = newInstaller(s.log, s.backends, httpClient)
+}
+
+// GetRunningBackends returns information about all running backends
+func (s *Scheduler) GetRunningBackends(w http.ResponseWriter, r *http.Request) {
+	runningBackends := s.getLoaderStatus()
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(runningBackends); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
+}
+
+// getLoaderStatus returns information about all running backends managed by the loader
+func (s *Scheduler) getLoaderStatus() []BackendStatus {
+	if !s.loader.lock(context.Background()) {
+		return []BackendStatus{}
+	}
+	defer s.loader.unlock()
+
+	result := make([]BackendStatus, 0, len(s.loader.runners))
+
+	for key, slot := range s.loader.runners {
+		if s.loader.slots[slot] != nil {
+			status := BackendStatus{
+				BackendName: key.backend,
+				ModelName:   key.model,
+				Mode:        key.mode.String(),
+				LastUsed:    time.Time{},
+			}
+
+			if s.loader.references[slot] == 0 {
+				status.LastUsed = s.loader.timestamps[slot]
+			}
+
+			result = append(result, status)
+		}
+	}
+
+	return result
 }
 
 // ServeHTTP implements net/http.Handler.ServeHTTP.
