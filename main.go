@@ -55,7 +55,12 @@ func main() {
 		modelManager,
 		log.WithFields(logrus.Fields{"component": "llama.cpp"}),
 		llamaServerPath,
-		func() string { wd, _ := os.Getwd(); return wd }(),
+		func() string {
+			wd, _ := os.Getwd()
+			d := filepath.Join(wd, "updated-inference")
+			_ = os.MkdirAll(d, 0o755)
+			return d
+		}(),
 	)
 	if err != nil {
 		log.Fatalf("unable to initialize %s backend: %v", llamacpp.Name, err)

@@ -83,6 +83,7 @@ func (s *Scheduler) routeHandlers() map[string]http.HandlerFunc {
 	}
 	m["GET "+inference.InferencePrefix+"/status"] = s.GetBackendStatus
 	m["GET "+inference.InferencePrefix+"/ps"] = s.GetRunningBackends
+	m["GET "+inference.InferencePrefix+"/df"] = s.GetDiskUsage
 	return m
 }
 
@@ -264,6 +265,28 @@ func (s *Scheduler) getLoaderStatus() []BackendStatus {
 	}
 
 	return result
+}
+
+func (s *Scheduler) GetDiskUsage(w http.ResponseWriter, _ *http.Request) {
+	modelsDiskUsage, err, httpCode := s.modelManager.GetDiskUsage()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get models disk usage: %v", err), httpCode)
+		return
+	}
+
+	// TODO: Get disk usage for each backend once the backends are implemented.
+	defaultBackendDiskUsage, err := s.defaultBackend.GetDiskUsage()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get disk usage for %s: %v", s.defaultBackend.Name(), err), http.StatusInternalServerError)
+		return
+	}
+
+	diskUsage := DiskUsage{modelsDiskUsage, defaultBackendDiskUsage}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(diskUsage); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 // ServeHTTP implements net/http.Handler.ServeHTTP.
