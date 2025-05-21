@@ -61,3 +61,15 @@ type DiskUsage struct {
 	ModelsDiskUsage         float64 `json:"models_disk_usage"`
 	DefaultBackendDiskUsage float64 `json:"default_backend_disk_usage"`
 }
+
+// UnloadRequest is used to specify which models to unload.
+type UnloadRequest struct {
+	All     bool   `json:"all"`
+	Backend string `json:"backend"`
+	Model   string `json:"model"`
+}
+
+// UnloadResponse is used to return the number of unloaded runners (backend, model).
+type UnloadResponse struct {
+	UnloadedRunners int `json:"unloaded_runners"`
+}
