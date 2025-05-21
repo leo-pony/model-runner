@@ -2,6 +2,7 @@ package scheduling
 
 import (
 	"strings"
+	"time"
 
 	"github.com/docker/model-runner/pkg/inference"
 )
@@ -41,4 +42,16 @@ func backendModeForRequest(path string) (inference.BackendMode, bool) {
 type OpenAIInferenceRequest struct {
 	// Model is the requested model name.
 	Model string `json:"model"`
+}
+
+// BackendStatus represents information about a running backend
+type BackendStatus struct {
+	// BackendName is the name of the backend
+	BackendName string `json:"backend_name"`
+	// ModelName is the name of the model loaded in the backend
+	ModelName string `json:"model_name"`
+	// Mode is the mode the backend is operating in
+	Mode string `json:"mode"`
+	// LastUsed represents when this (backend, model, mode) tuple was last used
+	LastUsed time.Time `json:"last_used,omitempty"`
 }
