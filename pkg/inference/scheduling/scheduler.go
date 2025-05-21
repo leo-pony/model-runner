@@ -84,6 +84,7 @@ func (s *Scheduler) routeHandlers() map[string]http.HandlerFunc {
 	m["GET "+inference.InferencePrefix+"/status"] = s.GetBackendStatus
 	m["GET "+inference.InferencePrefix+"/ps"] = s.GetRunningBackends
 	m["GET "+inference.InferencePrefix+"/df"] = s.GetDiskUsage
+	m["POST "+inference.InferencePrefix+"/unload"] = s.Unload
 	return m
 }
 
@@ -284,6 +285,33 @@ func (s *Scheduler) GetDiskUsage(w http.ResponseWriter, _ *http.Request) {
 	diskUsage := DiskUsage{modelsDiskUsage, defaultBackendDiskUsage}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(diskUsage); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
+}
+
+// Unload unloads the specified runners (backend, model) from the backend.
+// Currently, this doesn't work for runners that are handling an OpenAI request.
+func (s *Scheduler) Unload(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maximumOpenAIInferenceRequestSize))
+	if err != nil {
+		if _, ok := err.(*http.MaxBytesError); ok {
+			http.Error(w, "request too large", http.StatusBadRequest)
+		} else {
+			http.Error(w, "unknown error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	var unloadRequest UnloadRequest
+	if err := json.Unmarshal(body, &unloadRequest); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	unloadedRunners := UnloadResponse{s.loader.Unload(r.Context(), unloadRequest)}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(unloadedRunners); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to encode response: %v", err), http.StatusInternalServerError)
 		return
 	}
