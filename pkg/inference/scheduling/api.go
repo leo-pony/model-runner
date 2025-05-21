@@ -55,3 +55,9 @@ type BackendStatus struct {
 	// LastUsed represents when this (backend, model, mode) tuple was last used
 	LastUsed time.Time `json:"last_used,omitempty"`
 }
+
+// DiskUsage represents the disk usage of the models and default backend.
+type DiskUsage struct {
+	ModelsDiskUsage         float64 `json:"models_disk_usage"`
+	DefaultBackendDiskUsage float64 `json:"default_backend_disk_usage"`
+}
