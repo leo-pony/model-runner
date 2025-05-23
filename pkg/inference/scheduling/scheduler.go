@@ -230,7 +230,7 @@ func (s *Scheduler) ResetInstaller(httpClient *http.Client) {
 
 // GetRunningBackends returns information about all running backends
 func (s *Scheduler) GetRunningBackends(w http.ResponseWriter, r *http.Request) {
-	runningBackends := s.getLoaderStatus()
+	runningBackends := s.getLoaderStatus(r.Context())
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(runningBackends); err != nil {
@@ -240,8 +240,8 @@ func (s *Scheduler) GetRunningBackends(w http.ResponseWriter, r *http.Request) {
 }
 
 // getLoaderStatus returns information about all running backends managed by the loader
-func (s *Scheduler) getLoaderStatus() []BackendStatus {
-	if !s.loader.lock(context.Background()) {
+func (s *Scheduler) getLoaderStatus(ctx context.Context) []BackendStatus {
+	if !s.loader.lock(ctx) {
 		return []BackendStatus{}
 	}
 	defer s.loader.unlock()
