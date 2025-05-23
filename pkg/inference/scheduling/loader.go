@@ -182,7 +182,8 @@ func (l *loader) evict(idleOnly bool) int {
 func (l *loader) evictRunner(backend, model string) int {
 	allBackends := backend == ""
 	for r, slot := range l.runners {
-		if (allBackends || r.backend == backend) && r.model == model {
+		unused := l.references[slot] == 0
+		if unused && (allBackends || r.backend == backend) && r.model == model {
 			l.log.Infof("Evicting %s backend runner with model %s in %s mode",
 				r.backend, r.model, r.mode,
 			)
