@@ -59,6 +59,8 @@ docker-run: docker-build
 		-e MODELS_PATH=/models \
 		-e LLAMA_ARGS="$(LLAMA_ARGS)" \
 		-e DMR_ORIGINS="$(DMR_ORIGINS)" \
+		-e DO_NOT_TRACK=${DO_NOT_TRACK} \
+		-e DEBUG=${DEBUG} \
 		$(DOCKER_IMAGE)
 
 # Show help
