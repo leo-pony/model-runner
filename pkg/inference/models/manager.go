@@ -92,7 +92,7 @@ func NewManager(log logging.Logger, c ClientConfig) *Manager {
 }
 
 func (m *Manager) routeHandlers() map[string]http.HandlerFunc {
-	return map[string]http.HandlerFunc{
+	handlers := map[string]http.HandlerFunc{
 		"POST " + inference.ModelsPrefix + "/create":                          m.handleCreateModel,
 		"GET " + inference.ModelsPrefix:                                       m.handleGetModels,
 		"GET " + inference.ModelsPrefix + "/{name...}":                        m.handleGetModel,
@@ -103,6 +103,12 @@ func (m *Manager) routeHandlers() map[string]http.HandlerFunc {
 		"GET " + inference.InferencePrefix + "/v1/models":                     m.handleOpenAIGetModels,
 		"GET " + inference.InferencePrefix + "/v1/models/{name...}":           m.handleOpenAIGetModel,
 	}
+	for route, handler := range handlers {
+		if strings.HasPrefix(route, "GET ") {
+			handlers[route] = inference.CorsMiddleware(handler).ServeHTTP
+		}
+	}
+	return handlers
 }
 
 func (m *Manager) GetRoutes() []string {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/docker/model-distribution/distribution"
@@ -79,7 +80,10 @@ func (s *Scheduler) routeHandlers() map[string]http.HandlerFunc {
 	}
 	m := make(map[string]http.HandlerFunc)
 	for _, route := range openAIRoutes {
-		m[route] = s.handleOpenAIInference
+		m[route] = inference.CorsMiddleware(http.HandlerFunc(s.handleOpenAIInference)).ServeHTTP
+		// Register OPTIONS for CORS preflight.
+		optionsRoute := "OPTIONS " + route[strings.Index(route, " "):]
+		m[optionsRoute] = inference.CorsMiddleware(http.HandlerFunc(s.handleOpenAIInference)).ServeHTTP
 	}
 	m["GET "+inference.InferencePrefix+"/status"] = s.GetBackendStatus
 	m["GET "+inference.InferencePrefix+"/ps"] = s.GetRunningBackends
