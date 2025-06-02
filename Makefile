@@ -58,6 +58,7 @@ docker-run: docker-build
 		-e LLAMA_SERVER_PATH=/app/bin \
 		-e MODELS_PATH=/models \
 		-e LLAMA_ARGS="$(LLAMA_ARGS)" \
+		-e DMR_ORIGINS="$(DMR_ORIGINS)" \
 		$(DOCKER_IMAGE)
 
 # Show help
