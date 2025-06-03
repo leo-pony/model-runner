@@ -47,10 +47,14 @@ func main() {
 		llamacpp.ShouldUpdateServerLock.Unlock()
 	}
 
-	modelManager := models.NewManager(log, models.ClientConfig{
-		StoreRootPath: modelPath,
-		Logger:        log.WithFields(logrus.Fields{"component": "model-manager"}),
-	})
+	modelManager := models.NewManager(
+		log,
+		models.ClientConfig{
+			StoreRootPath: modelPath,
+			Logger:        log.WithFields(logrus.Fields{"component": "model-manager"}),
+		},
+		nil,
+	)
 
 	llamaServerPath := os.Getenv("LLAMA_SERVER_PATH")
 	if llamaServerPath == "" {
@@ -85,6 +89,7 @@ func main() {
 		llamaCppBackend,
 		modelManager,
 		http.DefaultClient,
+		nil,
 	)
 
 	router := routing.NewNormalizedServeMux()

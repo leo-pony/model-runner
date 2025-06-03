@@ -51,7 +51,7 @@ type ClientConfig struct {
 }
 
 // NewManager creates a new model's manager.
-func NewManager(log logging.Logger, c ClientConfig) *Manager {
+func NewManager(log logging.Logger, c ClientConfig, allowedOrigins []string) *Manager {
 	// Create the model distribution client.
 	distributionClient, err := distribution.NewClient(
 		distribution.WithStoreRootPath(c.StoreRootPath),
@@ -78,7 +78,7 @@ func NewManager(log logging.Logger, c ClientConfig) *Manager {
 		http.Error(w, "not found", http.StatusNotFound)
 	})
 
-	for route, handler := range m.routeHandlers() {
+	for route, handler := range m.routeHandlers(allowedOrigins) {
 		m.router.HandleFunc(route, handler)
 	}
 
@@ -91,7 +91,7 @@ func NewManager(log logging.Logger, c ClientConfig) *Manager {
 	return m
 }
 
-func (m *Manager) routeHandlers() map[string]http.HandlerFunc {
+func (m *Manager) routeHandlers(allowedOrigins []string) map[string]http.HandlerFunc {
 	handlers := map[string]http.HandlerFunc{
 		"POST " + inference.ModelsPrefix + "/create":                          m.handleCreateModel,
 		"GET " + inference.ModelsPrefix:                                       m.handleGetModels,
@@ -105,14 +105,14 @@ func (m *Manager) routeHandlers() map[string]http.HandlerFunc {
 	}
 	for route, handler := range handlers {
 		if strings.HasPrefix(route, "GET ") {
-			handlers[route] = inference.CorsMiddleware(handler).ServeHTTP
+			handlers[route] = inference.CorsMiddleware(allowedOrigins, handler).ServeHTTP
 		}
 	}
 	return handlers
 }
 
 func (m *Manager) GetRoutes() []string {
-	routeHandlers := m.routeHandlers()
+	routeHandlers := m.routeHandlers(nil)
 	routes := make([]string, 0, len(routeHandlers))
 	for route := range routeHandlers {
 		routes = append(routes, route)
