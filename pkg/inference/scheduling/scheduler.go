@@ -48,6 +48,7 @@ func NewScheduler(
 	modelManager *models.Manager,
 	httpClient *http.Client,
 	allowedOrigins []string,
+	tracker *metrics.Tracker,
 ) *Scheduler {
 	// Create the scheduler.
 	s := &Scheduler{
@@ -58,7 +59,7 @@ func NewScheduler(
 		installer:      newInstaller(log, backends, httpClient),
 		loader:         newLoader(log, backends, modelManager),
 		router:         http.NewServeMux(),
-		tracker:        metrics.NewTracker(httpClient, log.WithField("component", "metrics")),
+		tracker:        tracker,
 	}
 
 	// Register routes.

@@ -18,6 +18,7 @@ type Tracker struct {
 	doNotTrack bool
 	transport  http.RoundTripper
 	log        logging.Logger
+	userAgent  string
 }
 
 type TrackerRoundTripper struct {
@@ -33,10 +34,14 @@ func (h *TrackerRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	return h.Transport.RoundTrip(clonedReq)
 }
 
-func NewTracker(httpClient *http.Client, log logging.Logger) *Tracker {
+func NewTracker(httpClient *http.Client, log logging.Logger, userAgent string, doNotTrack bool) *Tracker {
 	client := *httpClient
 	if client.Transport == nil {
 		client.Transport = http.DefaultTransport
+	}
+
+	if userAgent == "" {
+		userAgent = "docker-model-runner"
 	}
 
 	if os.Getenv("DEBUG") == "1" {
@@ -48,9 +53,10 @@ func NewTracker(httpClient *http.Client, log logging.Logger) *Tracker {
 	}
 
 	return &Tracker{
-		doNotTrack: os.Getenv("DO_NOT_TRACK") == "1",
+		doNotTrack: os.Getenv("DO_NOT_TRACK") == "1" || doNotTrack,
 		transport:  &TrackerRoundTripper{Transport: client.Transport},
 		log:        log,
+		userAgent:  userAgent,
 	}
 }
 
@@ -73,11 +79,11 @@ func (t *Tracker) trackModel(model types.Model) {
 		t.log.Errorf("Error parsing reference: %v\n", err)
 		return
 	}
-	if _, err = remote.Head(ref, []remote.Option{
+	if _, err = remote.Head(ref,
 		remote.WithAuthFromKeychain(authn.DefaultKeychain),
 		remote.WithTransport(t.transport),
-		remote.WithUserAgent("docker-model-runner"),
-	}...); err != nil {
+		remote.WithUserAgent(t.userAgent),
+	); err != nil {
 		t.log.Debugf("Manifest does not exist or error occurred: %v\n", err)
 		return
 	}

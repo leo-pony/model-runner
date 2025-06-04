@@ -15,6 +15,7 @@ import (
 	"github.com/docker/model-runner/pkg/inference/config"
 	"github.com/docker/model-runner/pkg/inference/models"
 	"github.com/docker/model-runner/pkg/inference/scheduling"
+	"github.com/docker/model-runner/pkg/metrics"
 	"github.com/docker/model-runner/pkg/routing"
 	"github.com/sirupsen/logrus"
 )
@@ -90,6 +91,12 @@ func main() {
 		modelManager,
 		http.DefaultClient,
 		nil,
+		metrics.NewTracker(
+			http.DefaultClient,
+			log.WithField("component", "metrics"),
+			"",
+			false,
+		),
 	)
 
 	router := routing.NewNormalizedServeMux()
