@@ -10,6 +10,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/docker/model-distribution/distribution"
 	"github.com/docker/model-distribution/registry"
@@ -39,6 +40,8 @@ type Manager struct {
 	distributionClient *distribution.Client
 	// registryClient is the client for model registry.
 	registryClient *registry.Client
+	// lock is used to synchronize access to the models manager's router.
+	lock sync.Mutex
 }
 
 type ClientConfig struct {
@@ -98,6 +101,20 @@ func NewManager(log logging.Logger, c ClientConfig, allowedOrigins []string) *Ma
 
 	// Manager successfully initialized.
 	return m
+}
+
+func (m *Manager) RebuildRoutes(allowedOrigins []string) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	// Clear existing routes and re-register them.
+	m.router = http.NewServeMux()
+	// Register routes.
+	m.router.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "not found", http.StatusNotFound)
+	})
+	for route, handler := range m.routeHandlers(allowedOrigins) {
+		m.router.HandleFunc(route, handler)
+	}
 }
 
 func (m *Manager) routeHandlers(allowedOrigins []string) map[string]http.HandlerFunc {
@@ -494,6 +511,8 @@ func (m *Manager) GetDiskUsage() (int64, error, int) {
 
 // ServeHTTP implement net/http.Handler.ServeHTTP.
 func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	m.router.ServeHTTP(w, r)
 }
 

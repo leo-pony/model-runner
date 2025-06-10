@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/docker/model-distribution/distribution"
@@ -38,6 +39,8 @@ type Scheduler struct {
 	router *http.ServeMux
 	// tracker is the metrics tracker.
 	tracker *metrics.Tracker
+	// lock is used to synchronize access to the scheduler's router.
+	lock sync.Mutex
 }
 
 // NewScheduler creates a new inference scheduler.
@@ -73,6 +76,20 @@ func NewScheduler(
 
 	// Scheduler successfully initialized.
 	return s
+}
+
+func (s *Scheduler) RebuildRoutes(allowedOrigins []string) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	// Clear existing routes and re-register them.
+	s.router = http.NewServeMux()
+	// Register routes.
+	s.router.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "not found", http.StatusNotFound)
+	})
+	for route, handler := range s.routeHandlers(allowedOrigins) {
+		s.router.HandleFunc(route, handler)
+	}
 }
 
 func (s *Scheduler) routeHandlers(allowedOrigins []string) map[string]http.HandlerFunc {
@@ -332,5 +349,7 @@ func (s *Scheduler) Unload(w http.ResponseWriter, r *http.Request) {
 
 // ServeHTTP implements net/http.Handler.ServeHTTP.
 func (s *Scheduler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	s.router.ServeHTTP(w, r)
 }
