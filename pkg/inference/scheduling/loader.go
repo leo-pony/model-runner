@@ -253,6 +253,12 @@ func (l *loader) idleCheckDuration() time.Duration {
 	// Compute the oldest usage time for any idle runner.
 	var oldest time.Time
 	for _, slot := range l.runners {
+		select {
+		case <-l.slots[slot].done:
+			// Check immediately if a runner is defunct
+			return 0
+		default:
+		}
 		if l.references[slot] == 0 {
 			timestamp := l.timestamps[slot]
 			if oldest.IsZero() || timestamp.Before(oldest) {
