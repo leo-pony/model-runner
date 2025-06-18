@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"runtime"
 	"time"
 
@@ -528,6 +529,20 @@ func (l *loader) setRunnerConfig(ctx context.Context, backendName, model string,
 
 	runnerId := runnerKey{backendName, model, mode}
 
+	// If the configuration hasn't changed, then just return.
+	if existingConfig, ok := l.runnerConfigs[runnerId]; ok && reflect.DeepEqual(runnerConfig, existingConfig) {
+		l.log.Infof("Configuration for %s runner for model %s unchanged", backendName, model)
+		return nil
+	}
+
+	// If there's an active runner whose configuration we want to override, then
+	// try evicting it (because it may not be in use).
+	if _, ok := l.runners[runnerId]; ok {
+		l.evictRunner(backendName, model, mode)
+	}
+
+	// If there's still then active runner, then we can't (or at least
+	// shouldn't) change the configuration.
 	if _, ok := l.runners[runnerId]; ok {
 		return errRunnerAlreadyActive
 	}
