@@ -38,6 +38,7 @@ type RequestResponsePair struct {
 	Response   string    `json:"response"`
 	Timestamp  time.Time `json:"timestamp"`
 	StatusCode int       `json:"status_code"`
+	UserAgent  string    `json:"user_agent,omitempty"`
 }
 
 type ModelData struct {
@@ -90,6 +91,7 @@ func (r *OpenAIRecorder) RecordRequest(model string, req *http.Request, body []b
 		URL:       req.URL.Path,
 		Request:   string(body),
 		Timestamp: time.Now(),
+		UserAgent: req.UserAgent(),
 	}
 
 	if r.records[model] == nil {
