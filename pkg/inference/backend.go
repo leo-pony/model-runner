@@ -30,8 +30,8 @@ func (m BackendMode) String() string {
 }
 
 type BackendConfiguration struct {
-	ContextSize int64
-	RawFlags    []string
+	ContextSize int64    `json:"context_size,omitempty"`
+	RawFlags    []string `json:"flags,omitempty"`
 }
 
 // Backend is the interface implemented by inference engine backends. Backend

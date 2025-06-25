@@ -169,6 +169,8 @@ func run(
 		}
 	}
 
+	r.openAIRecorder.SetConfigForModel(model, runnerConfig)
+
 	// Start the backend run loop.
 	go func() {
 		if err := backend.Run(runCtx, socket, model, mode, runnerConfig); err != nil {

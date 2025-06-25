@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/logging"
 )
 
@@ -39,17 +40,41 @@ type RequestResponsePair struct {
 	StatusCode int       `json:"status_code"`
 }
 
+type ModelData struct {
+	Config  inference.BackendConfiguration `json:"config"`
+	Records []*RequestResponsePair         `json:"records"`
+}
+
 type OpenAIRecorder struct {
 	log     logging.Logger
-	records map[string][]*RequestResponsePair
+	records map[string]*ModelData
 	m       sync.RWMutex
 }
 
 func NewOpenAIRecorder(log logging.Logger) *OpenAIRecorder {
 	return &OpenAIRecorder{
 		log:     log,
-		records: make(map[string][]*RequestResponsePair),
+		records: make(map[string]*ModelData),
 	}
+}
+
+func (r *OpenAIRecorder) SetConfigForModel(model string, config *inference.BackendConfiguration) {
+	if config == nil {
+		r.log.Warnf("SetConfigForModel called with nil config for model %s", model)
+		return
+	}
+
+	r.m.Lock()
+	defer r.m.Unlock()
+
+	if r.records[model] == nil {
+		r.records[model] = &ModelData{
+			Records: make([]*RequestResponsePair, 0, 10),
+			Config:  inference.BackendConfiguration{},
+		}
+	}
+
+	r.records[model].Config = *config
 }
 
 func (r *OpenAIRecorder) RecordRequest(model string, req *http.Request, body []byte) string {
@@ -68,13 +93,16 @@ func (r *OpenAIRecorder) RecordRequest(model string, req *http.Request, body []b
 	}
 
 	if r.records[model] == nil {
-		r.records[model] = make([]*RequestResponsePair, 0, 10)
+		r.records[model] = &ModelData{
+			Records: make([]*RequestResponsePair, 0, 10),
+			Config:  inference.BackendConfiguration{},
+		}
 	}
 
-	r.records[model] = append(r.records[model], record)
+	r.records[model].Records = append(r.records[model].Records, record)
 
-	if len(r.records[model]) > 10 {
-		r.records[model] = r.records[model][1:]
+	if len(r.records[model].Records) > 10 {
+		r.records[model].Records = r.records[model].Records[1:]
 	}
 
 	return recordID
@@ -105,8 +133,8 @@ func (r *OpenAIRecorder) RecordResponse(id, model string, rw http.ResponseWriter
 	r.m.Lock()
 	defer r.m.Unlock()
 
-	if modelRecords, exists := r.records[model]; exists {
-		for _, record := range modelRecords {
+	if modelData, exists := r.records[model]; exists {
+		for _, record := range modelData.Records {
 			if record.ID == id {
 				record.Response = response
 				record.StatusCode = statusCode
@@ -205,6 +233,7 @@ func (r *OpenAIRecorder) GetRecordsByModelHandler() http.HandlerFunc {
 				"model":   model,
 				"records": records,
 				"count":   len(records),
+				"config":  r.records[model].Config,
 			}); err != nil {
 				http.Error(w, fmt.Sprintf("Failed to encode records for model '%s': %v", model, err),
 					http.StatusInternalServerError)
@@ -218,9 +247,9 @@ func (r *OpenAIRecorder) GetRecordsByModel(model string) []*RequestResponsePair 
 	r.m.RLock()
 	defer r.m.RUnlock()
 
-	if modelRecords, exists := r.records[model]; exists {
-		result := make([]*RequestResponsePair, len(modelRecords))
-		copy(result, modelRecords)
+	if modelData, exists := r.records[model]; exists {
+		result := make([]*RequestResponsePair, len(modelData.Records))
+		copy(result, modelData.Records)
 		return result
 	}
 
