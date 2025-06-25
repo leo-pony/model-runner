@@ -13,6 +13,7 @@ import (
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/inference/models"
 	"github.com/docker/model-runner/pkg/logging"
+	"github.com/docker/model-runner/pkg/metrics"
 )
 
 const (
@@ -92,6 +93,8 @@ type loader struct {
 	timestamps []time.Time
 	// runnerConfigs maps model names to runner configurations
 	runnerConfigs map[runnerKey]inference.BackendConfiguration
+	// openAIRecorder is used to record OpenAI API inference requests and responses.
+	openAIRecorder *metrics.OpenAIRecorder
 }
 
 // newLoader creates a new loader.
@@ -99,6 +102,7 @@ func newLoader(
 	log logging.Logger,
 	backends map[string]inference.Backend,
 	modelManager *models.Manager,
+	openAIRecorder *metrics.OpenAIRecorder,
 ) *loader {
 	// Compute the number of runner slots to allocate. Because of RAM and VRAM
 	// limitations, it's unlikely that we'll ever be able to fully populate
@@ -153,6 +157,7 @@ func newLoader(
 		allocations:       make([]uint64, nSlots),
 		timestamps:        make([]time.Time, nSlots),
 		runnerConfigs:     make(map[runnerKey]inference.BackendConfiguration),
+		openAIRecorder:    openAIRecorder,
 	}
 	l.guard <- struct{}{}
 	return l
@@ -462,7 +467,7 @@ func (l *loader) load(ctx context.Context, backendName, model string, mode infer
 			}
 			// Create the runner.
 			l.log.Infof("Loading %s backend runner with model %s in %s mode", backendName, model, mode)
-			runner, err := run(l.log, backend, model, mode, slot, runnerConfig)
+			runner, err := run(l.log, backend, model, mode, slot, runnerConfig, l.openAIRecorder)
 			if err != nil {
 				l.log.Warnf("Unable to start %s backend runner with model %s in %s mode: %v",
 					backendName, model, mode, err,

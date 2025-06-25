@@ -40,6 +40,8 @@ type Scheduler struct {
 	router *http.ServeMux
 	// tracker is the metrics tracker.
 	tracker *metrics.Tracker
+	// openAIRecorder is used to record OpenAI API inference requests and responses.
+	openAIRecorder *metrics.OpenAIRecorder
 	// lock is used to synchronize access to the scheduler's router.
 	lock sync.Mutex
 }
@@ -54,6 +56,8 @@ func NewScheduler(
 	allowedOrigins []string,
 	tracker *metrics.Tracker,
 ) *Scheduler {
+	openAIRecorder := metrics.NewOpenAIRecorder(log.WithField("component", "openai-recorder"))
+
 	// Create the scheduler.
 	s := &Scheduler{
 		log:            log,
@@ -61,9 +65,10 @@ func NewScheduler(
 		defaultBackend: defaultBackend,
 		modelManager:   modelManager,
 		installer:      newInstaller(log, backends, httpClient),
-		loader:         newLoader(log, backends, modelManager),
+		loader:         newLoader(log, backends, modelManager, openAIRecorder),
 		router:         http.NewServeMux(),
 		tracker:        tracker,
+		openAIRecorder: openAIRecorder,
 	}
 
 	// Register routes.
@@ -115,6 +120,7 @@ func (s *Scheduler) routeHandlers(allowedOrigins []string) map[string]http.Handl
 	m["POST "+inference.InferencePrefix+"/unload"] = s.Unload
 	m["POST "+inference.InferencePrefix+"/{backend}/_configure"] = s.Configure
 	m["POST "+inference.InferencePrefix+"/_configure"] = s.Configure
+	m["GET "+inference.InferencePrefix+"/requests"] = s.openAIRecorder.GetRecordsByModelHandler()
 	return m
 }
 
@@ -231,6 +237,14 @@ func (s *Scheduler) handleOpenAIInference(w http.ResponseWriter, r *http.Request
 		// Non-blocking call to track the model usage.
 		s.tracker.TrackModel(model)
 	}
+
+	// Record the request in the OpenAI recorder.
+	recordID := s.openAIRecorder.RecordRequest(request.Model, r, body)
+	w = s.openAIRecorder.NewResponseRecorder(w)
+	defer func() {
+		// Record the response in the OpenAI recorder.
+		s.openAIRecorder.RecordResponse(recordID, request.Model, w)
+	}()
 
 	// Request a runner to execute the request and defer its release.
 	runner, err := s.loader.load(r.Context(), backend.Name(), request.Model, backendMode)
