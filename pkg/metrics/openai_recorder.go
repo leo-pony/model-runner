@@ -226,3 +226,15 @@ func (r *OpenAIRecorder) GetRecordsByModel(model string) []*RequestResponsePair 
 
 	return nil
 }
+
+func (r *OpenAIRecorder) RemoveModel(model string) {
+	r.m.Lock()
+	defer r.m.Unlock()
+
+	if _, exists := r.records[model]; exists {
+		delete(r.records, model)
+		r.log.Infof("Removed records for model: %s", model)
+	} else {
+		r.log.Warnf("No records found for model: %s", model)
+	}
+}

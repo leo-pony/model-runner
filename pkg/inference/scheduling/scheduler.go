@@ -56,6 +56,8 @@ func NewScheduler(
 	allowedOrigins []string,
 	tracker *metrics.Tracker,
 ) *Scheduler {
+	openAIRecorder := metrics.NewOpenAIRecorder(log.WithField("component", "openai-recorder"))
+
 	// Create the scheduler.
 	s := &Scheduler{
 		log:            log,
@@ -63,10 +65,10 @@ func NewScheduler(
 		defaultBackend: defaultBackend,
 		modelManager:   modelManager,
 		installer:      newInstaller(log, backends, httpClient),
-		loader:         newLoader(log, backends, modelManager),
+		loader:         newLoader(log, backends, modelManager, openAIRecorder),
 		router:         http.NewServeMux(),
 		tracker:        tracker,
-		openAIRecorder: metrics.NewOpenAIRecorder(log.WithField("component", "openai-recorder")),
+		openAIRecorder: openAIRecorder,
 	}
 
 	// Register routes.
