@@ -388,23 +388,27 @@ func (s *Scheduler) Configure(w http.ResponseWriter, r *http.Request) {
 	}
 
 	configureRequest := ConfigureRequest{
-		Model:           "",
-		ContextSize:     -1,
-		RawRuntimeFlags: "",
+		ContextSize: -1,
 	}
 	if err := json.Unmarshal(body, &configureRequest); err != nil {
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
-	rawFlags, err := shellwords.Parse(configureRequest.RawRuntimeFlags)
-	if err != nil {
-		http.Error(w, "invalid request", http.StatusBadRequest)
-		return
+	var runtimeFlags []string
+	if len(configureRequest.RuntimeFlags) > 0 {
+		runtimeFlags = configureRequest.RuntimeFlags
+	} else {
+		rawFlags, err := shellwords.Parse(configureRequest.RawRuntimeFlags)
+		if err != nil {
+			http.Error(w, "invalid request", http.StatusBadRequest)
+			return
+		}
+		runtimeFlags = rawFlags
 	}
 
 	var runnerConfig inference.BackendConfiguration
 	runnerConfig.ContextSize = configureRequest.ContextSize
-	runnerConfig.RawFlags = rawFlags
+	runnerConfig.RuntimeFlags = runtimeFlags
 
 	if err := s.loader.setRunnerConfig(r.Context(), backend.Name(), configureRequest.Model, inference.BackendModeCompletion, runnerConfig); err != nil {
 		s.log.Warnf("Failed to configure %s runner for %s: %s", backend.Name(), configureRequest.Model, err)
