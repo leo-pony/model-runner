@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/docker/model-distribution/types"
 	"github.com/docker/model-runner/pkg/inference"
 )
 
@@ -72,12 +73,17 @@ func TestGetArgs(t *testing.T) {
 
 	tests := []struct {
 		name     string
+		model    types.Model
 		mode     inference.BackendMode
+		config   *inference.BackendConfiguration
 		expected []string
 	}{
 		{
 			name: "completion mode",
 			mode: inference.BackendModeCompletion,
+			model: &fakeModel{
+				ggufPath: modelPath,
+			},
 			expected: []string{
 				"--jinja",
 				"-ngl", "100",
@@ -89,6 +95,9 @@ func TestGetArgs(t *testing.T) {
 		{
 			name: "embedding mode",
 			mode: inference.BackendModeEmbedding,
+			model: &fakeModel{
+				ggufPath: modelPath,
+			},
 			expected: []string{
 				"--jinja",
 				"-ngl", "100",
@@ -98,11 +107,74 @@ func TestGetArgs(t *testing.T) {
 				"--embeddings",
 			},
 		},
+		{
+			name: "context size from backend config",
+			mode: inference.BackendModeEmbedding,
+			model: &fakeModel{
+				ggufPath: modelPath,
+			},
+			config: &inference.BackendConfiguration{
+				ContextSize: 1234,
+			},
+			expected: []string{
+				"--jinja",
+				"-ngl", "100",
+				"--metrics",
+				"--model", modelPath,
+				"--host", socket,
+				"--embeddings",
+				"--ctx-size", "1234", // should add this flag
+			},
+		},
+		{
+			name: "context size from model config",
+			mode: inference.BackendModeEmbedding,
+			model: &fakeModel{
+				ggufPath: modelPath,
+				config: types.Config{
+					ContextSize: uint64ptr(2096),
+				},
+			},
+			config: &inference.BackendConfiguration{
+				ContextSize: 1234,
+			},
+			expected: []string{
+				"--jinja",
+				"-ngl", "100",
+				"--metrics",
+				"--model", modelPath,
+				"--host", socket,
+				"--embeddings",
+				"--ctx-size", "2096", // model config takes precedence
+			},
+		},
+		{
+			name: "raw flags from backend config",
+			mode: inference.BackendModeEmbedding,
+			model: &fakeModel{
+				ggufPath: modelPath,
+			},
+			config: &inference.BackendConfiguration{
+				RuntimeFlags: []string{"--some", "flag"},
+			},
+			expected: []string{
+				"--jinja",
+				"-ngl", "100",
+				"--metrics",
+				"--model", modelPath,
+				"--host", socket,
+				"--embeddings",
+				"--some", "flag", // model config takes precedence
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			args := config.GetArgs(modelPath, socket, tt.mode)
+			args, err := config.GetArgs(tt.model, socket, tt.mode, tt.config)
+			if err != nil {
+				t.Errorf("GetArgs() error = %v", err)
+			}
 
 			// Check that all expected arguments are present and in the correct order
 			expectedIndex := 0
@@ -170,4 +242,35 @@ func TestContainsArg(t *testing.T) {
 			}
 		})
 	}
+}
+
+var _ types.Model = &fakeModel{}
+
+type fakeModel struct {
+	ggufPath string
+	config   types.Config
+}
+
+func (f *fakeModel) ID() (string, error) {
+	panic("shouldn't be called")
+}
+
+func (f *fakeModel) GGUFPath() (string, error) {
+	return f.ggufPath, nil
+}
+
+func (f *fakeModel) Config() (types.Config, error) {
+	return f.config, nil
+}
+
+func (f *fakeModel) Tags() []string {
+	panic("shouldn't be called")
+}
+
+func (f fakeModel) Descriptor() (types.Descriptor, error) {
+	panic("shouldn't be called")
+}
+
+func uint64ptr(n uint64) *uint64 {
+	return &n
 }
