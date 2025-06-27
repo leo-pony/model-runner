@@ -41,12 +41,12 @@ func (c *Config) GetArgs(model types.Model, socket string, mode inference.Backen
 
 	modelPath, err := model.GGUFPath()
 	if err != nil {
-		return nil, fmt.Errorf("get gguf path: %v", err)
+		return nil, fmt.Errorf("get gguf path: %w", err)
 	}
 
 	modelCfg, err := model.Config()
 	if err != nil {
-		return nil, fmt.Errorf("get model config: %v", err)
+		return nil, fmt.Errorf("get model config: %w", err)
 	}
 
 	// Add model and socket arguments
