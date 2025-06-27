@@ -86,7 +86,8 @@ type UnloadResponse struct {
 
 // ConfigureRequest specifies per-model runtime configuration options.
 type ConfigureRequest struct {
-	Model           string `json:"model"`
-	ContextSize     int64  `json:"context-size,omitempty"`
-	RawRuntimeFlags string `json:"raw-runtime-flags,omitempty"`
+	Model           string   `json:"model"`
+	ContextSize     int64    `json:"context-size,omitempty"`
+	RuntimeFlags    []string `json:"runtime-flags,omitempty"`
+	RawRuntimeFlags string   `json:"raw-runtime-flags,omitempty"`
 }
