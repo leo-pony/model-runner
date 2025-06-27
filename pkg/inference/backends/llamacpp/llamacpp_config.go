@@ -65,7 +65,7 @@ func (c *Config) GetArgs(model types.Model, socket string, mode inference.Backen
 	// Add arguments from backend config
 	if config != nil {
 		if config.ContextSize > 0 && !containsArg(args, "--ctx-size") {
-			args = append(args, "--ctx-size", fmt.Sprintf("%d", config.ContextSize))
+			args = append(args, "--ctx-size", strconv.FormatInt(config.ContextSize, 10))
 		}
 		args = append(args, config.RuntimeFlags...)
 	}
