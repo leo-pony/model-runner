@@ -15,10 +15,11 @@ import (
 	"github.com/docker/model-distribution/distribution"
 	"github.com/docker/model-distribution/registry"
 	"github.com/docker/model-distribution/types"
+	"github.com/sirupsen/logrus"
+
 	"github.com/docker/model-runner/pkg/diskusage"
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/logging"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -120,6 +121,7 @@ func (m *Manager) RebuildRoutes(allowedOrigins []string) {
 func (m *Manager) routeHandlers(allowedOrigins []string) map[string]http.HandlerFunc {
 	handlers := map[string]http.HandlerFunc{
 		"POST " + inference.ModelsPrefix + "/create":                          m.handleCreateModel,
+		"POST " + inference.ModelsPrefix + "/load":                            m.handleLoadModel,
 		"GET " + inference.ModelsPrefix:                                       m.handleGetModels,
 		"GET " + inference.ModelsPrefix + "/{name...}":                        m.handleGetModel,
 		"DELETE " + inference.ModelsPrefix + "/{name...}":                     m.handleDeleteModel,
@@ -185,6 +187,20 @@ func (m *Manager) handleCreateModel(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+// handleLoadModel handles POST <inference-prefix>/models/load requests.
+func (m *Manager) handleLoadModel(w http.ResponseWriter, r *http.Request) {
+	if m.distributionClient == nil {
+		http.Error(w, "model distribution service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	if _, err := m.distributionClient.LoadModel(r.Body, w); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	return
 }
 
 // handleGetModels handles GET <inference-prefix>/models requests.
