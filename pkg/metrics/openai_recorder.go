@@ -103,7 +103,7 @@ func (r *OpenAIRecorder) RecordRequest(model string, req *http.Request, body []b
 
 	record := &RequestResponsePair{
 		ID:        recordID,
-		Model:     modelID,
+		Model:     model,
 		Method:    req.Method,
 		URL:       req.URL.Path,
 		Request:   string(body),
