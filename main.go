@@ -165,13 +165,13 @@ func main() {
 		}
 	case <-ctx.Done():
 		log.Infoln("Shutdown signal received")
+		log.Infoln("Shutting down the server")
+		if err := server.Close(); err != nil {
+			log.Errorf("Server shutdown error: %v", err)
+		}
 		log.Infoln("Waiting for the scheduler to stop")
 		if err := <-schedulerErrors; err != nil {
 			log.Errorf("Scheduler error: %v", err)
-		}
-		log.Infoln("Shutting down the server")
-		if err := server.Shutdown(ctx); err != nil {
-			log.Errorf("Server shutdown error: %v", err)
 		}
 	}
 	log.Infoln("Docker Model Runner stopped")
