@@ -43,7 +43,7 @@ type Scheduler struct {
 	// openAIRecorder is used to record OpenAI API inference requests and responses.
 	openAIRecorder *metrics.OpenAIRecorder
 	// lock is used to synchronize access to the scheduler's router.
-	lock sync.Mutex
+	lock sync.RWMutex
 }
 
 // NewScheduler creates a new inference scheduler.
@@ -510,7 +510,7 @@ func parseBackendMode(mode string) inference.BackendMode {
 
 // ServeHTTP implements net/http.Handler.ServeHTTP.
 func (s *Scheduler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 	s.router.ServeHTTP(w, r)
 }
