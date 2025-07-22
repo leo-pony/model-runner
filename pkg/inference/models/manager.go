@@ -41,7 +41,7 @@ type Manager struct {
 	// registryClient is the client for model registry.
 	registryClient *registry.Client
 	// lock is used to synchronize access to the models manager's router.
-	lock sync.Mutex
+	lock sync.RWMutex
 }
 
 type ClientConfig struct {
@@ -542,8 +542,8 @@ func (m *Manager) GetDiskUsage() (int64, error, int) {
 
 // ServeHTTP implement net/http.Handler.ServeHTTP.
 func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
+	m.lock.RLock()
+	defer m.lock.RUnlock()
 	m.router.ServeHTTP(w, r)
 }
 
