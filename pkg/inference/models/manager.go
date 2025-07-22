@@ -163,6 +163,10 @@ func (m *Manager) handleCreateModel(w http.ResponseWriter, r *http.Request) {
 	// Pull the model. In the future, we may support additional operations here
 	// besides pulling (such as model building).
 	if err := m.PullModel(request.From, r, w); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			m.log.Infof("Request canceled/timed out while pulling model %q", request.From)
+			return
+		}
 		if errors.Is(err, registry.ErrInvalidReference) {
 			m.log.Warnf("Invalid model reference %q: %v", request.From, err)
 			http.Error(w, "Invalid model reference", http.StatusBadRequest)
