@@ -263,7 +263,8 @@ func (l *loader) Unload(ctx context.Context, unload UnloadRequest) int {
 		} else {
 			for _, model := range unload.Models {
 				modelID := l.modelManager.ResolveModelID(model)
-				delete(l.runnerConfigs, runnerKey{unload.Backend, model, inference.BackendModeCompletion})
+				delete(l.runnerConfigs, runnerKey{unload.Backend, modelID, inference.BackendModeCompletion})
+				delete(l.runnerConfigs, runnerKey{unload.Backend, modelID, inference.BackendModeEmbedding})
 				// Evict both, completion and embedding models. We should consider
 				// accepting a mode parameter in unload requests.
 				l.evictRunner(unload.Backend, modelID, inference.BackendModeCompletion)
