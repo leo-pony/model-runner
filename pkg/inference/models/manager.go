@@ -196,6 +196,8 @@ func (m *Manager) handleLoadModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	defer r.Body.Close()
+
 	if _, err := m.distributionClient.LoadModel(r.Body, w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
