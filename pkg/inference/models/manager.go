@@ -15,11 +15,10 @@ import (
 	"github.com/docker/model-distribution/distribution"
 	"github.com/docker/model-distribution/registry"
 	"github.com/docker/model-distribution/types"
-	"github.com/sirupsen/logrus"
-
 	"github.com/docker/model-runner/pkg/diskusage"
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/logging"
+	"github.com/sirupsen/logrus"
 )
 
 const (
