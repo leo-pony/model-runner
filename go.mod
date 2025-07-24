@@ -5,8 +5,10 @@ go 1.23.7
 require (
 	github.com/containerd/containerd/v2 v2.0.4
 	github.com/containerd/platforms v1.0.0-rc.1
-	github.com/docker/model-distribution v0.0.0-20250710123110-a633223e127e
+	github.com/docker/model-distribution v0.0.0-20250724114133-a11d745e582c
+	github.com/elastic/go-sysinfo v1.15.3
 	github.com/google/go-containerregistry v0.20.3
+	github.com/gpustack/gguf-parser-go v0.14.1
 	github.com/jaypipes/ghw v0.16.0
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/opencontainers/go-digest v1.0.0
@@ -29,13 +31,11 @@ require (
 	github.com/docker/cli v27.5.0+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.2 // indirect
-	github.com/elastic/go-sysinfo v1.15.3 // indirect
 	github.com/elastic/go-windows v1.0.2 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
-	github.com/gpustack/gguf-parser-go v0.14.1 // indirect
 	github.com/henvic/httpretty v0.1.4 // indirect
 	github.com/jaypipes/pcidb v1.0.1 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
