@@ -144,3 +144,11 @@ curl http://localhost:8080/metrics
 - **Monitoring integration**: Add the endpoint to your Prometheus configuration
 
 Check [METRICS.md](./METRICS.md) for more details.
+
+##  Kubernetes
+
+Experimental support for running in Kubernetes is available
+in the form of [a Helm chart and static YAML](charts/docker-model-runner/README).
+
+If you are interested in a specific Kubernetes use-case, please start a
+discussion on the issue tracker.
