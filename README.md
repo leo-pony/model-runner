@@ -148,7 +148,7 @@ Check [METRICS.md](./METRICS.md) for more details.
 ##  Kubernetes
 
 Experimental support for running in Kubernetes is available
-in the form of [a Helm chart and static YAML](charts/docker-model-runner/README).
+in the form of [a Helm chart and static YAML](charts/docker-model-runner/README.md).
 
 If you are interested in a specific Kubernetes use-case, please start a
 discussion on the issue tracker.
