@@ -15,10 +15,9 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/docker/model-distribution/types"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	parser "github.com/gpustack/gguf-parser-go"
-
-	"github.com/docker/model-distribution/types"
 
 	"github.com/docker/model-runner/pkg/diskusage"
 	"github.com/docker/model-runner/pkg/inference"
@@ -133,7 +132,7 @@ func (l *llamaCpp) Install(ctx context.Context, httpClient *http.Client) error {
 
 // Run implements inference.Backend.Run.
 func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference.BackendMode, config *inference.BackendConfiguration) error {
-	mdl, err := l.modelManager.GetModel(model)
+	bundle, err := l.modelManager.GetBundle(model)
 	if err != nil {
 		return fmt.Errorf("failed to get model: %w", err)
 	}
@@ -148,7 +147,7 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 		binPath = l.updatedServerStoragePath
 	}
 
-	args, err := l.config.GetArgs(mdl, socket, mode, config)
+	args, err := l.config.GetArgs(bundle, socket, mode, config)
 	if err != nil {
 		return fmt.Errorf("failed to get args for llama.cpp: %w", err)
 	}
@@ -245,7 +244,7 @@ func (l *llamaCpp) GetRequiredMemoryForModel(ctx context.Context, model string, 
 		}
 	}
 
-	contextSize := GetContextSize(&mdlConfig, config)
+	contextSize := GetContextSize(mdlConfig, config)
 
 	ngl := uint64(0)
 	if l.gpuSupported {
@@ -281,23 +280,15 @@ func (l *llamaCpp) GetRequiredMemoryForModel(ctx context.Context, model string, 
 }
 
 func (l *llamaCpp) parseLocalModel(model string) (*parser.GGUFFile, types.Config, error) {
-	mdl, err := l.modelManager.GetModel(model)
+	bundle, err := l.modelManager.GetBundle(model)
 	if err != nil {
 		return nil, types.Config{}, fmt.Errorf("getting model(%s): %w", model, err)
 	}
-	mdlPath, err := mdl.GGUFPath()
+	modelGGUF, err := parser.ParseGGUFFile(bundle.GGUFPath())
 	if err != nil {
-		return nil, types.Config{}, fmt.Errorf("getting gguf path for model(%s): %w", model, err)
+		return nil, types.Config{}, fmt.Errorf("parsing gguf(%s): %w", bundle.GGUFPath(), err)
 	}
-	mdlGguf, err := parser.ParseGGUFFile(mdlPath)
-	if err != nil {
-		return nil, types.Config{}, fmt.Errorf("parsing gguf(%s): %w", mdlPath, err)
-	}
-	mdlConfig, err := mdl.Config()
-	if err != nil {
-		return nil, types.Config{}, fmt.Errorf("accessing model(%s) config: %w", model, err)
-	}
-	return mdlGguf, mdlConfig, nil
+	return modelGGUF, bundle.RuntimeConfig(), nil
 }
 
 func (l *llamaCpp) parseRemoteModel(ctx context.Context, model string) (*parser.GGUFFile, types.Config, error) {
