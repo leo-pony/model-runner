@@ -15,10 +15,11 @@ import (
 	"github.com/docker/model-distribution/distribution"
 	"github.com/docker/model-distribution/registry"
 	"github.com/docker/model-distribution/types"
+	"github.com/sirupsen/logrus"
+
 	"github.com/docker/model-runner/pkg/diskusage"
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/logging"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -571,17 +572,13 @@ func (m *Manager) GetModel(ref string) (types.Model, error) {
 	return model, err
 }
 
-// GetModelPath returns the path to a model's files.
-func (m *Manager) GetModelPath(ref string) (string, error) {
-	model, err := m.GetModel(ref)
+// GetBundle returns model bundle.
+func (m *Manager) GetBundle(ref string) (types.ModelBundle, error) {
+	bundle, err := m.distributionClient.GetBundle(ref)
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("error while getting model bundle: %w", err)
 	}
-	path, err := model.GGUFPath()
-	if err != nil {
-		return "", fmt.Errorf("error while getting model path: %w", err)
-	}
-	return path, nil
+	return bundle, err
 }
 
 // PullModel pulls a model to local storage. Any error it returns is suitable

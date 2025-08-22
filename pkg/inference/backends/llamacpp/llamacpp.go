@@ -130,7 +130,7 @@ func (l *llamaCpp) Install(ctx context.Context, httpClient *http.Client) error {
 
 // Run implements inference.Backend.Run.
 func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference.BackendMode, config *inference.BackendConfiguration) error {
-	mdl, err := l.modelManager.GetModel(model)
+	bundle, err := l.modelManager.GetBundle(model)
 	if err != nil {
 		return fmt.Errorf("failed to get model: %w", err)
 	}
@@ -145,7 +145,7 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 		binPath = l.updatedServerStoragePath
 	}
 
-	args, err := l.config.GetArgs(mdl, socket, mode, config)
+	args, err := l.config.GetArgs(bundle, socket, mode, config)
 	if err != nil {
 		return fmt.Errorf("failed to get args for llama.cpp: %w", err)
 	}
@@ -224,29 +224,22 @@ func (l *llamaCpp) GetDiskUsage() (int64, error) {
 }
 
 func (l *llamaCpp) GetRequiredMemoryForModel(model string, config *inference.BackendConfiguration) (*inference.RequiredMemory, error) {
-	mdl, err := l.modelManager.GetModel(model)
+	bundle, err := l.modelManager.GetBundle(model)
 	if err != nil {
 		return nil, fmt.Errorf("getting model(%s): %w", model, err)
 	}
-	mdlPath, err := mdl.GGUFPath()
+
+	mdlGGUF, err := parser.ParseGGUFFile(bundle.GGUFPath())
 	if err != nil {
-		return nil, fmt.Errorf("getting gguf path for model(%s): %w", model, err)
-	}
-	mdlGguf, err := parser.ParseGGUFFile(mdlPath)
-	if err != nil {
-		l.log.Warnf("Failed to parse gguf(%s): %s", mdlPath, err)
+		l.log.Warnf("Failed to parse gguf(%s): %s", bundle.GGUFPath(), err)
 		return nil, inference.ErrGGUFParse
 	}
-	mdlConfig, err := mdl.Config()
-	if err != nil {
-		return nil, fmt.Errorf("accessing model(%s) config: %w", model, err)
-	}
 
-	contextSize := GetContextSize(&mdlConfig, config)
+	contextSize := GetContextSize(bundle.RuntimeConfig(), config)
 
 	ngl := uint64(0)
 	if l.gpuSupported {
-		if runtime.GOOS == "windows" && runtime.GOARCH == "arm64" && mdlConfig.Quantization != "Q4_0" {
+		if runtime.GOOS == "windows" && runtime.GOARCH == "arm64" && strings.TrimSpace(mdlGGUF.Metadata().FileType.String()) != "Q4_0" {
 			ngl = 0 // only Q4_0 models can be accelerated on Adreno
 		}
 		ngl = 100
@@ -255,7 +248,7 @@ func (l *llamaCpp) GetRequiredMemoryForModel(model string, config *inference.Bac
 	// TODO(p1-0tr): for now assume we are running on GPU (single one) - Devices[1];
 	// sum up weights + kv cache + context for an estimate of total GPU memory needed
 	// while running inference with the given model
-	estimate := mdlGguf.EstimateLLaMACppRun(parser.WithLLaMACppContextSize(int32(contextSize)),
+	estimate := mdlGGUF.EstimateLLaMACppRun(parser.WithLLaMACppContextSize(int32(contextSize)),
 		// TODO(p1-0tr): add logic for resolving other param values, instead of hardcoding them
 		parser.WithLLaMACppLogicalBatchSize(2048),
 		parser.WithLLaMACppOffloadLayers(ngl))

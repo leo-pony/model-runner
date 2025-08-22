@@ -1,12 +1,12 @@
 package llamacpp
 
 import (
-	"errors"
 	"runtime"
 	"strconv"
 	"testing"
 
 	"github.com/docker/model-distribution/types"
+
 	"github.com/docker/model-runner/pkg/inference"
 )
 
@@ -74,7 +74,7 @@ func TestGetArgs(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		model    types.Model
+		bundle   types.ModelBundle
 		mode     inference.BackendMode
 		config   *inference.BackendConfiguration
 		expected []string
@@ -82,7 +82,7 @@ func TestGetArgs(t *testing.T) {
 		{
 			name: "completion mode",
 			mode: inference.BackendModeCompletion,
-			model: &fakeModel{
+			bundle: &fakeBundle{
 				ggufPath: modelPath,
 			},
 			expected: []string{
@@ -97,7 +97,7 @@ func TestGetArgs(t *testing.T) {
 		{
 			name: "embedding mode",
 			mode: inference.BackendModeEmbedding,
-			model: &fakeModel{
+			bundle: &fakeBundle{
 				ggufPath: modelPath,
 			},
 			expected: []string{
@@ -113,7 +113,7 @@ func TestGetArgs(t *testing.T) {
 		{
 			name: "context size from backend config",
 			mode: inference.BackendModeEmbedding,
-			model: &fakeModel{
+			bundle: &fakeBundle{
 				ggufPath: modelPath,
 			},
 			config: &inference.BackendConfiguration{
@@ -132,7 +132,7 @@ func TestGetArgs(t *testing.T) {
 		{
 			name: "context size from model config",
 			mode: inference.BackendModeEmbedding,
-			model: &fakeModel{
+			bundle: &fakeBundle{
 				ggufPath: modelPath,
 				config: types.Config{
 					ContextSize: uint64ptr(2096),
@@ -154,7 +154,7 @@ func TestGetArgs(t *testing.T) {
 		{
 			name: "raw flags from backend config",
 			mode: inference.BackendModeEmbedding,
-			model: &fakeModel{
+			bundle: &fakeBundle{
 				ggufPath: modelPath,
 			},
 			config: &inference.BackendConfiguration{
@@ -175,7 +175,7 @@ func TestGetArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			args, err := config.GetArgs(tt.model, socket, tt.mode, tt.config)
+			args, err := config.GetArgs(tt.bundle, socket, tt.mode, tt.config)
 			if err != nil {
 				t.Errorf("GetArgs() error = %v", err)
 			}
@@ -248,35 +248,27 @@ func TestContainsArg(t *testing.T) {
 	}
 }
 
-var _ types.Model = &fakeModel{}
+var _ types.ModelBundle = &fakeBundle{}
 
-type fakeModel struct {
+type fakeBundle struct {
 	ggufPath string
 	config   types.Config
 }
 
-func (f *fakeModel) MMPROJPath() (string, error) {
-	return "", errors.New("not found")
-}
-
-func (f *fakeModel) ID() (string, error) {
+func (f *fakeBundle) RootDir() string {
 	panic("shouldn't be called")
 }
 
-func (f *fakeModel) GGUFPath() (string, error) {
-	return f.ggufPath, nil
+func (f *fakeBundle) GGUFPath() string {
+	return f.ggufPath
 }
 
-func (f *fakeModel) Config() (types.Config, error) {
-	return f.config, nil
+func (f *fakeBundle) MMPROJPath() string {
+	return ""
 }
 
-func (f *fakeModel) Tags() []string {
-	panic("shouldn't be called")
-}
-
-func (f fakeModel) Descriptor() (types.Descriptor, error) {
-	panic("shouldn't be called")
+func (f *fakeBundle) RuntimeConfig() types.Config {
+	return f.config
 }
 
 func uint64ptr(n uint64) *uint64 {
