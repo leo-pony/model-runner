@@ -310,7 +310,7 @@ func (l *llamaCpp) parseRemoteModel(ctx context.Context, model string) (*parser.
 		return nil, types.Config{}, fmt.Errorf("getting layers of model(%s): %w", model, err)
 	}
 	ggufLayers := getGGUFLayers(layers)
-	if len(ggufLayers) != 0 {
+	if len(ggufLayers) != 1 {
 		return nil, types.Config{}, fmt.Errorf(
 			"remote memory estimation only supported for models with single GGUF layer, found %d layers", len(ggufLayers),
 		)
