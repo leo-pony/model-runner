@@ -2,7 +2,6 @@ package inference
 
 import (
 	"context"
-	"errors"
 	"net/http"
 )
 
@@ -18,9 +17,13 @@ const (
 	BackendModeEmbedding
 )
 
-var (
-	ErrGGUFParse = errors.New("failed to parse GGUF file")
-)
+type ErrGGUFParse struct {
+	Err error
+}
+
+func (e *ErrGGUFParse) Error() string {
+	return "failed to parse GGUF: " + e.Err.Error()
+}
 
 // String implements Stringer.String for BackendMode.
 func (m BackendMode) String() string {
@@ -88,5 +91,5 @@ type Backend interface {
 	GetDiskUsage() (int64, error)
 	// GetRequiredMemoryForModel returns the required working memory for a given
 	// model.
-	GetRequiredMemoryForModel(model string, config *BackendConfiguration) (*RequiredMemory, error)
+	GetRequiredMemoryForModel(ctx context.Context, model string, config *BackendConfiguration) (*RequiredMemory, error)
 }
