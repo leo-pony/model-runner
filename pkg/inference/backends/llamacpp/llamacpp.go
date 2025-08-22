@@ -300,19 +300,15 @@ func (l *llamaCpp) parseRemoteModel(ctx context.Context, model string) (*parser.
 	if err != nil {
 		return nil, types.Config{}, fmt.Errorf("getting layers of model(%s): %w", model, err)
 	}
-	var ggufDigest v1.Hash
-	for _, layer := range layers {
-		mt, err := layer.MediaType()
-		if err != nil {
-			return nil, types.Config{}, fmt.Errorf("getting media type of model(%s) layer: %w", model, err)
-		}
-		if mt == types.MediaTypeGGUF {
-			ggufDigest, err = layer.Digest()
-			if err != nil {
-				return nil, types.Config{}, fmt.Errorf("getting digest of GGUF layer for model(%s): %w", model, err)
-			}
-			break
-		}
+	ggufLayers := getGGUFLayers(layers)
+	if len(ggufLayers) != 1 {
+		return nil, types.Config{}, fmt.Errorf(
+			"remote memory estimation only supported for models with single GGUF layer, found %d layers", len(ggufLayers),
+		)
+	}
+	ggufDigest, err := ggufLayers[0].Digest()
+	if err != nil {
+		return nil, types.Config{}, fmt.Errorf("getting digest of GGUF layer for model(%s): %w", model, err)
 	}
 	if ggufDigest.String() == "" {
 		return nil, types.Config{}, fmt.Errorf("model(%s) has no GGUF layer", model)
@@ -334,6 +330,20 @@ func (l *llamaCpp) parseRemoteModel(ctx context.Context, model string) (*parser.
 		return nil, types.Config{}, fmt.Errorf("getting config for model(%s): %w", model, err)
 	}
 	return mdlGguf, config, nil
+}
+
+func getGGUFLayers(layers []v1.Layer) []v1.Layer {
+	var filtered []v1.Layer
+	for _, layer := range layers {
+		mt, err := layer.MediaType()
+		if err != nil {
+			continue
+		}
+		if mt == types.MediaTypeGGUF {
+			filtered = append(filtered, layer)
+		}
+	}
+	return filtered
 }
 
 func (l *llamaCpp) checkGPUSupport(ctx context.Context) bool {
