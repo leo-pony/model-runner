@@ -62,8 +62,7 @@ func (c *Config) GetArgs(bundle types.ModelBundle, socket string, mode inference
 	}
 
 	// Add arguments for Multimodal projector
-	mmprojPath := bundle.MMPROJPath()
-	if path := mmprojPath; path != "" {
+	if path := bundle.MMPROJPath(); path != "" {
 		args = append(args, "--mmproj", path)
 	}
 
