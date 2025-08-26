@@ -143,7 +143,7 @@ func (r *OpenAIRecorder) NewResponseRecorder(w http.ResponseWriter) http.Respons
 	rc := &responseRecorder{
 		ResponseWriter: w,
 		body:           &bytes.Buffer{},
-		statusCode:     http.StatusOK,
+		statusCode:     0,
 	}
 	return rc
 }
@@ -153,6 +153,10 @@ func (r *OpenAIRecorder) RecordResponse(id, model string, rw http.ResponseWriter
 
 	responseBody := rr.body.String()
 	statusCode := rr.statusCode
+	if statusCode == 0 {
+		// No status code was written (request canceled or failed before response).
+		statusCode = http.StatusRequestTimeout
+	}
 
 	var response string
 	if strings.Contains(responseBody, "data: ") {
