@@ -41,16 +41,16 @@ func (rr *responseRecorder) Flush() {
 }
 
 type RequestResponsePair struct {
-	ID         string    `json:"id"`
-	Model      string    `json:"model"`
-	Method     string    `json:"method"`
-	URL        string    `json:"url"`
-	Request    string    `json:"request"`
-	Response   string    `json:"response,omitempty"`
-	Error      string    `json:"error,omitempty"`
-	Timestamp  time.Time `json:"timestamp"`
-	StatusCode int       `json:"status_code"`
-	UserAgent  string    `json:"user_agent,omitempty"`
+	ID         string `json:"id"`
+	Model      string `json:"model"`
+	Method     string `json:"method"`
+	URL        string `json:"url"`
+	Request    string `json:"request"`
+	Response   string `json:"response,omitempty"`
+	Error      string `json:"error,omitempty"`
+	Timestamp  int64  `json:"timestamp"`
+	StatusCode int    `json:"status_code"`
+	UserAgent  string `json:"user_agent,omitempty"`
 }
 
 type ModelData struct {
@@ -108,7 +108,7 @@ func (r *OpenAIRecorder) RecordRequest(model string, req *http.Request, body []b
 		Method:    req.Method,
 		URL:       req.URL.Path,
 		Request:   string(body),
-		Timestamp: time.Now(),
+		Timestamp: time.Now().Unix(),
 		UserAgent: req.UserAgent(),
 	}
 
