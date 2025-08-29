@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-// LlamaCppTemplate is the sandbox template to use for llama.cpp processes.
-const LlamaCppTemplate = `(version 1)
+// ConfigurationLlamaCpp is the sandbox configuration for llama.cpp processes.
+const ConfigurationLlamaCpp = `(version 1)
 
 ;;; Keep a default allow policy (because encoding things like DYLD support and
 ;;; device access is quite difficult), but deny critical exploitation targets
@@ -84,9 +84,32 @@ const LlamaCppTemplate = `(version 1)
     (subpath "[HOMEDIR]/.docker/models"))
 `
 
-// CommandContext creates a sandboxed version of an os/exec.Cmd. On Darwin, we
-// use the sandbox-exec command to wrap the process.
-func CommandContext(ctx context.Context, template, name string, args ...string) (*exec.Cmd, error) {
+// sandbox is the Darwin sandbox implementation.
+type sandbox struct {
+	// cancel cancels the context associated with the process.
+	cancel context.CancelFunc
+	// command is the sandboxed process handle.
+	command *exec.Cmd
+}
+
+// Command implements Sandbox.Command.
+func (s *sandbox) Command() *exec.Cmd {
+	return s.command
+}
+
+// Command implements Sandbox.Close.
+func (s *sandbox) Close() error {
+	s.cancel()
+	return nil
+}
+
+// New creates a new sandbox containing a single process that has been started.
+// The ctx, name, and arg arguments correspond to their counterparts in
+// os/exec.CommandContext. The configuration argument specifies the sandbox
+// configuration, for which a pre-defined value should be used. The modifier
+// function allows for an optional callback (which may be nil) to configure the
+// command before it is started.
+func New(ctx context.Context, configuration string, modifier func(*exec.Cmd), name string, arg ...string) (Sandbox, error) {
 	// Look up the user's home directory.
 	currentUser, err := user.Current()
 	if err != nil {
@@ -99,13 +122,30 @@ func CommandContext(ctx context.Context, template, name string, args ...string) 
 		return nil, fmt.Errorf("unable to determine working directory: %w", err)
 	}
 
-	// Compute the profile. Switch to text/template if this gets more complex.
-	profile := strings.ReplaceAll(template, "[HOMEDIR]", currentUser.HomeDir)
+	// Process template arguments in the configuration. We should switch to
+	// text/template if this gets any more complex.
+	profile := strings.ReplaceAll(configuration, "[HOMEDIR]", currentUser.HomeDir)
 	profile = strings.ReplaceAll(profile, "[WORKDIR]", currentDirectory)
 
-	// Create the sandboxed process.
-	sandboxedArgs := make([]string, 0, len(args)+3)
+	// Create a subcontext we can use to regulate the process lifetime.
+	ctx, cancel := context.WithCancel(ctx)
+
+	// Create and configure the command.
+	sandboxedArgs := make([]string, 0, len(arg)+3)
 	sandboxedArgs = append(sandboxedArgs, "-p", profile, name)
-	sandboxedArgs = append(sandboxedArgs, args...)
-	return exec.CommandContext(ctx, "sandbox-exec", sandboxedArgs...), nil
+	sandboxedArgs = append(sandboxedArgs, arg...)
+	command := exec.CommandContext(ctx, "sandbox-exec", sandboxedArgs...)
+	if modifier != nil {
+		modifier(command)
+	}
+
+	// Start the process.
+	if err := command.Start(); err != nil {
+		cancel()
+		return nil, fmt.Errorf("unabled to start sandboxed process: %w", err)
+	}
+	return &sandbox{
+		cancel:  cancel,
+		command: command,
+	}, nil
 }

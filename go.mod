@@ -10,6 +10,7 @@ require (
 	github.com/google/go-containerregistry v0.20.3
 	github.com/gpustack/gguf-parser-go v0.14.1
 	github.com/jaypipes/ghw v0.16.0
+	github.com/kolesnikovae/go-winjob v1.0.0
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
