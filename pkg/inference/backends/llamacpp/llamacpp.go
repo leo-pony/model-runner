@@ -9,7 +9,6 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -24,6 +23,7 @@ import (
 	"github.com/docker/model-runner/pkg/inference/config"
 	"github.com/docker/model-runner/pkg/inference/models"
 	"github.com/docker/model-runner/pkg/logging"
+	"github.com/docker/model-runner/pkg/sandbox"
 	"github.com/docker/model-runner/pkg/tailbuffer"
 )
 
@@ -153,11 +153,15 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 	}
 
 	l.log.Infof("llamaCppArgs: %v", args)
-	llamaCppProcess := exec.CommandContext(
+	llamaCppProcess, err := sandbox.CommandContext(
 		ctx,
+		sandbox.LlamaCppTemplate,
 		filepath.Join(binPath, "com.docker.llama-server"),
 		args...,
 	)
+	if err != nil {
+		return fmt.Errorf("unable to create sandboxed llama.cpp process: %w", err)
+	}
 	llamaCppProcess.Cancel = func() error {
 		if runtime.GOOS == "windows" {
 			return llamaCppProcess.Process.Kill()
@@ -351,13 +355,19 @@ func (l *llamaCpp) checkGPUSupport(ctx context.Context) bool {
 	if l.updatedLlamaCpp {
 		binPath = l.updatedServerStoragePath
 	}
-	out, err := exec.CommandContext(
+	llamaCppProcess, err := sandbox.CommandContext(
 		ctx,
+		sandbox.LlamaCppTemplate,
 		filepath.Join(binPath, "com.docker.llama-server"),
 		"--list-devices",
-	).CombinedOutput()
+	)
 	if err != nil {
-		l.log.Warnf("Failed to determine if llama-server is built with GPU support: %s", err)
+		l.log.Warnf("Failed to create sandboxed llama.cpp process to probe GPU support: %v", err)
+		return false
+	}
+	out, err := llamaCppProcess.CombinedOutput()
+	if err != nil {
+		l.log.Warnf("Failed to determine if llama-server is built with GPU support: %v", err)
 		return false
 	}
 	sc := bufio.NewScanner(strings.NewReader(string(out)))
