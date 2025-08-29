@@ -31,9 +31,12 @@ const ConfigurationLlamaCpp = `(version 1)
 (allow default)
 
 ;;; Deny network access, except for our IPC sockets.
+;;; NOTE: We use different socket nomenclature when running in Docker Desktop
+;;; (inference-N.sock) vs. standalone (inference-runner-N.sock), so we use a
+;;; wildcard to support both.
 (deny network*)
 (allow network-bind network-inbound
-    (regex #"inference-runner-[0-9]+\.sock$"))
+    (regex #"inference.*-[0-9]+\.sock$"))
 
 ;;; Deny access to the camera and microphone.
 (deny device*)
@@ -57,6 +60,9 @@ const ConfigurationLlamaCpp = `(version 1)
 ;;; NOTE: For some reason, the (home-subpath "...") predicate used in system
 ;;; sandbox profiles doesn't work with sandbox-exec.
 ;;; NOTE: We have to allow access to the working directory for standalone mode.
+;;; NOTE: We have to allow access to a regex-based Docker.app location to
+;;; support Docker Desktop development as well as Docker.app installs that don't
+;;; live inside /Applications.
 ;;; NOTE: For some reason (deny file-read*) really doesn't like to play nice
 ;;; with llama.cpp, so for that reason we'll avoid a blanket ban and just ban
 ;;; directories that might contain sensitive data.
@@ -65,23 +71,24 @@ const ConfigurationLlamaCpp = `(version 1)
 (deny file-read*
     (subpath "/Applications")
     (subpath "/private/etc")
-	(subpath "/Library")
-	(subpath "/Users")
-	(subpath "/Volumes"))
+    (subpath "/Library")
+    (subpath "/Users")
+    (subpath "/Volumes"))
 (allow file-read* file-map-executable
     (subpath "/usr")
     (subpath "/System")
-    (subpath "/Applications/Docker.app/Contents/Resources/model-runner")
+    (regex #"Docker\.app/Contents/Resources/model-runner")
     (subpath "[HOMEDIR]/.docker/bin/inference")
     (subpath "[HOMEDIR]/.docker/bin/lib"))
 (allow file-write*
-    (regex #"inference-runner-[0-9]+\.sock$")
     (literal "/dev/null")
     (subpath "/private/var")
+    (subpath "[HOMEDIR]/Library/Containers/com.docker.docker/Data")
     (subpath "[WORKDIR]"))
 (allow file-read*
-    (subpath "[WORKDIR]")
-    (subpath "[HOMEDIR]/.docker/models"))
+    (subpath "[HOMEDIR]/.docker/models")
+    (subpath "[HOMEDIR]/Library/Containers/com.docker.docker/Data")
+    (subpath "[WORKDIR]"))
 `
 
 // sandbox is the Darwin sandbox implementation.
