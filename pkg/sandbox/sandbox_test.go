@@ -1,12 +1,19 @@
 package sandbox
 
 import (
+	"runtime"
 	"testing"
 )
 
 // TestSandbox performs basic sandbox testing.
 func TestSandbox(t *testing.T) {
-	sandbox, err := New(t.Context(), ConfigurationLlamaCpp, nil, "date")
+	var sandbox Sandbox
+	var err error
+	if runtime.GOOS == "windows" {
+		sandbox, err = New(t.Context(), ConfigurationLlamaCpp, nil, "go", "version")
+	} else {
+		sandbox, err = New(t.Context(), ConfigurationLlamaCpp, nil, "date")
+	}
 	if err != nil {
 		t.Fatal("unable to create sandboxed process:", err)
 	}
