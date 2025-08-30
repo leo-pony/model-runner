@@ -59,13 +59,13 @@ func (s *sandbox) Close() error {
 	return s.job.Close()
 }
 
-// New creates a new sandbox containing a single process that has been started.
+// Create creates a sandbox containing a single process that has been started.
 // The ctx, name, and arg arguments correspond to their counterparts in
 // os/exec.CommandContext. The configuration argument specifies the sandbox
 // configuration, for which a pre-defined value should be used. The modifier
 // function allows for an optional callback (which may be nil) to configure the
 // command before it is started.
-func New(ctx context.Context, configuration string, modifier func(*exec.Cmd), name string, arg ...string) (Sandbox, error) {
+func Create(ctx context.Context, configuration string, modifier func(*exec.Cmd), name string, arg ...string) (Sandbox, error) {
 	// Parse the configuration and configure limits.
 	limits := []winjob.Limit{winjob.WithKillOnJobClose()}
 	tokens := limitTokenMatcher.FindAllString(configuration, -1)
@@ -86,7 +86,7 @@ func New(ctx context.Context, configuration string, modifier func(*exec.Cmd), na
 	// Create the and start the job.
 	job, err := winjob.Start(command, limits...)
 	if err != nil {
-		return nil, fmt.Errorf("unabled to start sandboxed process: %w", err)
+		return nil, fmt.Errorf("unable to start sandboxed process: %w", err)
 	}
 	return &sandbox{
 		job:     job,

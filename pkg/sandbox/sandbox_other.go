@@ -30,13 +30,13 @@ func (s *sandbox) Close() error {
 	return nil
 }
 
-// New creates a new sandbox containing a single process that has been started.
+// Create creates a sandbox containing a single process that has been started.
 // The ctx, name, and arg arguments correspond to their counterparts in
 // os/exec.CommandContext. The configuration argument specifies the sandbox
 // configuration, for which a pre-defined value should be used. The modifier
 // function allows for an optional callback (which may be nil) to configure the
 // command before it is started.
-func New(ctx context.Context, configuration string, modifier func(*exec.Cmd), name string, arg ...string) (Sandbox, error) {
+func Create(ctx context.Context, configuration string, modifier func(*exec.Cmd), name string, arg ...string) (Sandbox, error) {
 	// Create a subcontext we can use to regulate the process lifetime.
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -49,7 +49,7 @@ func New(ctx context.Context, configuration string, modifier func(*exec.Cmd), na
 	// Start the process.
 	if err := command.Start(); err != nil {
 		cancel()
-		return nil, fmt.Errorf("unabled to start process: %w", err)
+		return nil, fmt.Errorf("unable to start process: %w", err)
 	}
 	return &sandbox{
 		cancel:  cancel,

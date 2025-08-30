@@ -158,7 +158,7 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 	tailBuf := tailbuffer.NewTailBuffer(1024)
 	serverLogStream := l.serverLog.Writer()
 	out := io.MultiWriter(serverLogStream, tailBuf)
-	llamaCppSandbox, err := sandbox.New(
+	llamaCppSandbox, err := sandbox.Create(
 		ctx,
 		sandbox.ConfigurationLlamaCpp,
 		func(command *exec.Cmd) {
@@ -357,7 +357,7 @@ func (l *llamaCpp) checkGPUSupport(ctx context.Context) bool {
 		binPath = l.updatedServerStoragePath
 	}
 	var output bytes.Buffer
-	llamaCppSandbox, err := sandbox.New(
+	llamaCppSandbox, err := sandbox.Create(
 		ctx,
 		sandbox.ConfigurationLlamaCpp,
 		func(command *exec.Cmd) {
