@@ -2,6 +2,7 @@ package llamacpp
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -24,6 +25,7 @@ import (
 	"github.com/docker/model-runner/pkg/inference/config"
 	"github.com/docker/model-runner/pkg/inference/models"
 	"github.com/docker/model-runner/pkg/logging"
+	"github.com/docker/model-runner/pkg/sandbox"
 	"github.com/docker/model-runner/pkg/tailbuffer"
 )
 
@@ -153,30 +155,33 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, mode inference
 	}
 
 	l.log.Infof("llamaCppArgs: %v", args)
-	llamaCppProcess := exec.CommandContext(
-		ctx,
-		filepath.Join(binPath, "com.docker.llama-server"),
-		args...,
-	)
-	llamaCppProcess.Cancel = func() error {
-		if runtime.GOOS == "windows" {
-			return llamaCppProcess.Process.Kill()
-		}
-		return llamaCppProcess.Process.Signal(os.Interrupt)
-	}
 	tailBuf := tailbuffer.NewTailBuffer(1024)
 	serverLogStream := l.serverLog.Writer()
 	out := io.MultiWriter(serverLogStream, tailBuf)
-	llamaCppProcess.Stdout = serverLogStream
-	llamaCppProcess.Stderr = out
-
-	if err := llamaCppProcess.Start(); err != nil {
+	llamaCppSandbox, err := sandbox.Create(
+		ctx,
+		sandbox.ConfigurationLlamaCpp,
+		func(command *exec.Cmd) {
+			command.Cancel = func() error {
+				if runtime.GOOS == "windows" {
+					return command.Process.Kill()
+				}
+				return command.Process.Signal(os.Interrupt)
+			}
+			command.Stdout = serverLogStream
+			command.Stderr = out
+		},
+		filepath.Join(binPath, "com.docker.llama-server"),
+		args...,
+	)
+	if err != nil {
 		return fmt.Errorf("unable to start llama.cpp: %w", err)
 	}
+	defer llamaCppSandbox.Close()
 
 	llamaCppErrors := make(chan error, 1)
 	go func() {
-		llamaCppErr := llamaCppProcess.Wait()
+		llamaCppErr := llamaCppSandbox.Command().Wait()
 		serverLogStream.Close()
 
 		errOutput := new(strings.Builder)
@@ -351,16 +356,27 @@ func (l *llamaCpp) checkGPUSupport(ctx context.Context) bool {
 	if l.updatedLlamaCpp {
 		binPath = l.updatedServerStoragePath
 	}
-	out, err := exec.CommandContext(
+	var output bytes.Buffer
+	llamaCppSandbox, err := sandbox.Create(
 		ctx,
+		sandbox.ConfigurationLlamaCpp,
+		func(command *exec.Cmd) {
+			command.Stdout = &output
+			command.Stderr = &output
+		},
 		filepath.Join(binPath, "com.docker.llama-server"),
 		"--list-devices",
-	).CombinedOutput()
+	)
 	if err != nil {
-		l.log.Warnf("Failed to determine if llama-server is built with GPU support: %s", err)
+		l.log.Warnf("Failed to start sandboxed llama.cpp process to probe GPU support: %v", err)
 		return false
 	}
-	sc := bufio.NewScanner(strings.NewReader(string(out)))
+	defer llamaCppSandbox.Close()
+	if err := llamaCppSandbox.Command().Wait(); err != nil {
+		l.log.Warnf("Failed to determine if llama-server is built with GPU support: %v", err)
+		return false
+	}
+	sc := bufio.NewScanner(strings.NewReader(string(output.Bytes())))
 	expectDev := false
 	devRe := regexp.MustCompile(`\s{2}.*:\s`)
 	ndevs := 0
