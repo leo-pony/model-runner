@@ -58,6 +58,12 @@ type ModelData struct {
 	Records []*RequestResponsePair         `json:"records"`
 }
 
+type ModelRecordsResponse struct {
+	Count int    `json:"count"`
+	Model string `json:"model"`
+	ModelData
+}
+
 type OpenAIRecorder struct {
 	log          logging.Logger
 	records      map[string]*ModelData // key is model ID
@@ -288,12 +294,15 @@ func (r *OpenAIRecorder) GetRecordsHandler() http.HandlerFunc {
 			}
 
 			modelID := r.modelManager.ResolveModelID(model)
-			if err := json.NewEncoder(w).Encode(map[string]interface{}{
-				"model":   model,
-				"records": records,
-				"count":   len(records),
-				"config":  r.records[modelID].Config,
-			}); err != nil {
+			response := ModelRecordsResponse{
+				Count: len(records),
+				Model: model,
+				ModelData: ModelData{
+					Config:  r.records[modelID].Config,
+					Records: records,
+				},
+			}
+			if err := json.NewEncoder(w).Encode(response); err != nil {
 				http.Error(w, fmt.Sprintf("Failed to encode records for model '%s': %v", model, err),
 					http.StatusInternalServerError)
 				return
@@ -302,18 +311,20 @@ func (r *OpenAIRecorder) GetRecordsHandler() http.HandlerFunc {
 	}
 }
 
-func (r *OpenAIRecorder) getAllRecords() []map[string]interface{} {
+func (r *OpenAIRecorder) getAllRecords() []ModelRecordsResponse {
 	r.m.RLock()
 	defer r.m.RUnlock()
 
-	result := make([]map[string]interface{}, 0)
+	result := make([]ModelRecordsResponse, 0)
 
 	for modelID, modelData := range r.records {
-		modelResult := map[string]interface{}{
-			"model":   modelID,
-			"records": modelData.Records,
-			"count":   len(modelData.Records),
-			"config":  modelData.Config,
+		modelResult := ModelRecordsResponse{
+			Count: len(modelData.Records),
+			Model: modelID,
+			ModelData: ModelData{
+				Config:  modelData.Config,
+				Records: modelData.Records,
+			},
 		}
 		result = append(result, modelResult)
 	}
