@@ -264,17 +264,23 @@ func (r *OpenAIRecorder) convertStreamingResponse(streamingBody string) string {
 	return string(jsonResult)
 }
 
-func (r *OpenAIRecorder) GetRecordsByModelHandler() http.HandlerFunc {
+func (r *OpenAIRecorder) GetRecordsHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
 		model := req.URL.Query().Get("model")
 
 		if model == "" {
-			http.Error(w, "A 'model' query parameter is required", http.StatusBadRequest)
+			// Retrieve all records for all models.
+			allRecords := r.getAllRecords()
+			if err := json.NewEncoder(w).Encode(allRecords); err != nil {
+				http.Error(w, fmt.Sprintf("Failed to encode all records: %v", err),
+					http.StatusInternalServerError)
+				return
+			}
 		} else {
 			// Retrieve records for the specified model.
-			records := r.GetRecordsByModel(model)
+			records := r.getRecordsByModel(model)
 			if records == nil {
 				// No records found for the specified model.
 				http.Error(w, fmt.Sprintf("No records found for model '%s'", model), http.StatusNotFound)
@@ -296,7 +302,26 @@ func (r *OpenAIRecorder) GetRecordsByModelHandler() http.HandlerFunc {
 	}
 }
 
-func (r *OpenAIRecorder) GetRecordsByModel(model string) []*RequestResponsePair {
+func (r *OpenAIRecorder) getAllRecords() []map[string]interface{} {
+	r.m.RLock()
+	defer r.m.RUnlock()
+
+	result := make([]map[string]interface{}, 0)
+
+	for modelID, modelData := range r.records {
+		modelResult := map[string]interface{}{
+			"model":   modelID,
+			"records": modelData.Records,
+			"count":   len(modelData.Records),
+			"config":  modelData.Config,
+		}
+		result = append(result, modelResult)
+	}
+
+	return result
+}
+
+func (r *OpenAIRecorder) getRecordsByModel(model string) []*RequestResponsePair {
 	modelID := r.modelManager.ResolveModelID(model)
 
 	r.m.RLock()
