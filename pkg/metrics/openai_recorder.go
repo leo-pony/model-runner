@@ -317,15 +317,14 @@ func (r *OpenAIRecorder) getAllRecords() []ModelRecordsResponse {
 	result := make([]ModelRecordsResponse, 0, len(r.records))
 
 	for modelID, modelData := range r.records {
-		modelResult := ModelRecordsResponse{
+		result = append(result, ModelRecordsResponse{
 			Count: len(modelData.Records),
 			Model: modelID,
 			ModelData: ModelData{
 				Config:  modelData.Config,
 				Records: modelData.Records,
 			},
-		}
-		result = append(result, modelResult)
+		})
 	}
 
 	return result
