@@ -279,6 +279,11 @@ func (r *OpenAIRecorder) GetRecordsHandler() http.HandlerFunc {
 		if model == "" {
 			// Retrieve all records for all models.
 			allRecords := r.getAllRecords()
+			if allRecords == nil {
+				// No records found.
+				http.Error(w, "No records found", http.StatusNotFound)
+				return
+			}
 			if err := json.NewEncoder(w).Encode(allRecords); err != nil {
 				http.Error(w, fmt.Sprintf("Failed to encode all records: %v", err),
 					http.StatusInternalServerError)
@@ -314,6 +319,10 @@ func (r *OpenAIRecorder) GetRecordsHandler() http.HandlerFunc {
 func (r *OpenAIRecorder) getAllRecords() []ModelRecordsResponse {
 	r.m.RLock()
 	defer r.m.RUnlock()
+
+	if len(r.records) == 0 {
+		return nil
+	}
 
 	result := make([]ModelRecordsResponse, 0)
 
