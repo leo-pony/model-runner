@@ -314,7 +314,7 @@ func (r *OpenAIRecorder) getAllRecords() []ModelRecordsResponse {
 		return nil
 	}
 
-	result := make([]ModelRecordsResponse, 0)
+	result := make([]ModelRecordsResponse, 0, len(r.records))
 
 	for modelID, modelData := range r.records {
 		modelResult := ModelRecordsResponse{
