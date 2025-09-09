@@ -340,7 +340,7 @@ func (r *OpenAIRecorder) getRecordsByModel(model string) []ModelRecordsResponse 
 	if modelData, exists := r.records[modelID]; exists {
 		return []ModelRecordsResponse{{
 			Count: len(modelData.Records),
-			Model: model,
+			Model: modelID,
 			ModelData: ModelData{
 				Config:  modelData.Config,
 				Records: modelData.Records,
