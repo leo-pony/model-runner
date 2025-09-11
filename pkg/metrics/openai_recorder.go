@@ -58,6 +58,12 @@ type ModelData struct {
 	Records []*RequestResponsePair         `json:"records"`
 }
 
+type ModelRecordsResponse struct {
+	Count int    `json:"count"`
+	Model string `json:"model"`
+	ModelData
+}
+
 type OpenAIRecorder struct {
 	log          logging.Logger
 	records      map[string]*ModelData // key is model ID
@@ -266,30 +272,34 @@ func (r *OpenAIRecorder) convertStreamingResponse(streamingBody string) string {
 	return string(jsonResult)
 }
 
-func (r *OpenAIRecorder) GetRecordsByModelHandler() http.HandlerFunc {
+func (r *OpenAIRecorder) GetRecordsHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
 		model := req.URL.Query().Get("model")
 
 		if model == "" {
-			http.Error(w, "A 'model' query parameter is required", http.StatusBadRequest)
+			// Retrieve all records for all models.
+			allRecords := r.getAllRecords()
+			if allRecords == nil {
+				// No records found.
+				http.Error(w, "No records found", http.StatusNotFound)
+				return
+			}
+			if err := json.NewEncoder(w).Encode(allRecords); err != nil {
+				http.Error(w, fmt.Sprintf("Failed to encode all records: %v", err),
+					http.StatusInternalServerError)
+				return
+			}
 		} else {
 			// Retrieve records for the specified model.
-			records := r.GetRecordsByModel(model)
+			records := r.getRecordsByModel(model)
 			if records == nil {
 				// No records found for the specified model.
 				http.Error(w, fmt.Sprintf("No records found for model '%s'", model), http.StatusNotFound)
 				return
 			}
-
-			modelID := r.modelManager.ResolveModelID(model)
-			if err := json.NewEncoder(w).Encode(map[string]interface{}{
-				"model":   model,
-				"records": records,
-				"count":   len(records),
-				"config":  r.records[modelID].Config,
-			}); err != nil {
+			if err := json.NewEncoder(w).Encode(records); err != nil {
 				http.Error(w, fmt.Sprintf("Failed to encode records for model '%s': %v", model, err),
 					http.StatusInternalServerError)
 				return
@@ -298,16 +308,45 @@ func (r *OpenAIRecorder) GetRecordsByModelHandler() http.HandlerFunc {
 	}
 }
 
-func (r *OpenAIRecorder) GetRecordsByModel(model string) []*RequestResponsePair {
+func (r *OpenAIRecorder) getAllRecords() []ModelRecordsResponse {
+	r.m.RLock()
+	defer r.m.RUnlock()
+
+	if len(r.records) == 0 {
+		return nil
+	}
+
+	result := make([]ModelRecordsResponse, 0, len(r.records))
+
+	for modelID, modelData := range r.records {
+		result = append(result, ModelRecordsResponse{
+			Count: len(modelData.Records),
+			Model: modelID,
+			ModelData: ModelData{
+				Config:  modelData.Config,
+				Records: modelData.Records,
+			},
+		})
+	}
+
+	return result
+}
+
+func (r *OpenAIRecorder) getRecordsByModel(model string) []ModelRecordsResponse {
 	modelID := r.modelManager.ResolveModelID(model)
 
 	r.m.RLock()
 	defer r.m.RUnlock()
 
 	if modelData, exists := r.records[modelID]; exists {
-		result := make([]*RequestResponsePair, len(modelData.Records))
-		copy(result, modelData.Records)
-		return result
+		return []ModelRecordsResponse{{
+			Count: len(modelData.Records),
+			Model: modelID,
+			ModelData: ModelData{
+				Config:  modelData.Config,
+				Records: modelData.Records,
+			},
+		}}
 	}
 
 	return nil
