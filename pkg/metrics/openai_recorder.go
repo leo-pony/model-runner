@@ -195,7 +195,7 @@ func (r *OpenAIRecorder) convertStreamingResponse(streamingBody string) string {
 	lines := strings.Split(streamingBody, "\n")
 	var contentBuilder strings.Builder
 	var reasoningContentBuilder strings.Builder
-	var lastChunk map[string]interface{}
+	var lastChoice, lastChunk map[string]interface{}
 
 	for _, line := range lines {
 		if strings.HasPrefix(line, "data: ") {
@@ -213,6 +213,7 @@ func (r *OpenAIRecorder) convertStreamingResponse(streamingBody string) string {
 
 			if choices, ok := chunk["choices"].([]interface{}); ok && len(choices) > 0 {
 				if choice, ok := choices[0].(map[string]interface{}); ok {
+					lastChoice = choice
 					if delta, ok := choice["delta"].(map[string]interface{}); ok {
 						if content, ok := delta["content"].(string); ok {
 							contentBuilder.WriteString(content)
@@ -235,6 +236,7 @@ func (r *OpenAIRecorder) convertStreamingResponse(streamingBody string) string {
 	for key, value := range lastChunk {
 		finalResponse[key] = value
 	}
+	finalResponse["choices"] = []interface{}{lastChoice}
 
 	if choices, ok := finalResponse["choices"].([]interface{}); ok && len(choices) > 0 {
 		if choice, ok := choices[0].(map[string]interface{}); ok {
