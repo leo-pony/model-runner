@@ -69,6 +69,10 @@ type OpenAIRecorder struct {
 	records      map[string]*ModelData // key is model ID
 	modelManager *models.Manager       // for resolving model tags to IDs
 	m            sync.RWMutex
+
+	// streaming
+	subscribers map[string]chan *RequestResponsePair
+	subMutex    sync.RWMutex
 }
 
 func NewOpenAIRecorder(log logging.Logger, modelManager *models.Manager) *OpenAIRecorder {
@@ -76,6 +80,7 @@ func NewOpenAIRecorder(log logging.Logger, modelManager *models.Manager) *OpenAI
 		log:          log,
 		modelManager: modelManager,
 		records:      make(map[string]*ModelData),
+		subscribers:  make(map[string]chan *RequestResponsePair),
 	}
 }
 
@@ -188,6 +193,7 @@ func (r *OpenAIRecorder) RecordResponse(id, model string, rw http.ResponseWriter
 					record.Response = response
 					record.Error = "" // Ensure Error is empty for successful responses
 				}
+				go r.broadcastToSubscribers(record)
 				return
 			}
 		}
@@ -350,6 +356,110 @@ func (r *OpenAIRecorder) getRecordsByModel(model string) []ModelRecordsResponse 
 	}
 
 	return nil
+}
+
+func (r *OpenAIRecorder) broadcastToSubscribers(record *RequestResponsePair) {
+	r.subMutex.RLock()
+	defer r.subMutex.RUnlock()
+
+	for _, ch := range r.subscribers {
+		select {
+		case ch <- record:
+		default:
+			// The channel is full, skip this subscriber.
+		}
+	}
+}
+
+func (r *OpenAIRecorder) StreamRequestsHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		// Set SSE headers.
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+
+		// Create subscriber channel.
+		subscriberID := fmt.Sprintf("sub_%d", time.Now().UnixNano())
+		ch := make(chan *RequestResponsePair, 100)
+
+		// Register subscriber.
+		r.subMutex.Lock()
+		r.subscribers[subscriberID] = ch
+		r.subMutex.Unlock()
+
+		// Clean up on disconnect.
+		defer func() {
+			r.subMutex.Lock()
+			delete(r.subscribers, subscriberID)
+			close(ch)
+			r.subMutex.Unlock()
+		}()
+
+		// Optional: Send existing records first.
+		model := req.URL.Query().Get("model")
+		if includeExisting := req.URL.Query().Get("include_existing"); includeExisting == "true" {
+			r.sendExistingRecords(w, model)
+		}
+
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+			return
+		}
+
+		// Send heartbeat to establish connection.
+		fmt.Fprintf(w, "event: connected\ndata: {\"status\": \"connected\"}\n\n")
+		flusher.Flush()
+
+		for {
+			select {
+			case record, ok := <-ch:
+				if !ok {
+					return
+				}
+
+				// Filter by model if specified.
+				if model != "" && record.Model != model {
+					continue
+				}
+
+				// Send as SSE event.
+				jsonData, err := json.Marshal(record)
+				if err != nil {
+					continue
+				}
+
+				fmt.Fprintf(w, "event: new_request\ndata: %s\n\n", jsonData)
+				flusher.Flush()
+
+			case <-req.Context().Done():
+				// Client disconnected.
+				return
+			}
+		}
+	}
+}
+
+func (r *OpenAIRecorder) sendExistingRecords(w http.ResponseWriter, model string) {
+	var records []ModelRecordsResponse
+
+	if model == "" {
+		records = r.getAllRecords()
+	} else {
+		records = r.getRecordsByModel(model)
+	}
+
+	if records != nil {
+		for _, modelResponse := range records {
+			for _, record := range modelResponse.Records {
+				jsonData, err := json.Marshal(record)
+				if err != nil {
+					continue
+				}
+				fmt.Fprintf(w, "event: existing_request\ndata: %s\n\n", jsonData)
+			}
+		}
+	}
 }
 
 func (r *OpenAIRecorder) RemoveModel(model string) {
