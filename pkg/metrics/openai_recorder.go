@@ -280,36 +280,116 @@ func (r *OpenAIRecorder) convertStreamingResponse(streamingBody string) string {
 
 func (r *OpenAIRecorder) GetRecordsHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		acceptHeader := req.Header.Get("Accept")
 
-		model := req.URL.Query().Get("model")
+		// Check if client wants Server-Sent Events
+		if acceptHeader == "text/event-stream" {
+			r.handleStreamingRequests(w, req)
+			return
+		}
 
-		if model == "" {
-			// Retrieve all records for all models.
-			allRecords := r.getAllRecords()
-			if allRecords == nil {
-				// No records found.
-				http.Error(w, "No records found", http.StatusNotFound)
+		// Default to JSON response
+		r.handleJSONRequests(w, req)
+	}
+}
+
+func (r *OpenAIRecorder) handleJSONRequests(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	model := req.URL.Query().Get("model")
+
+	if model == "" {
+		// Retrieve all records for all models.
+		allRecords := r.getAllRecords()
+		if allRecords == nil {
+			// No records found.
+			http.Error(w, "No records found", http.StatusNotFound)
+			return
+		}
+		if err := json.NewEncoder(w).Encode(allRecords); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to encode all records: %v", err),
+				http.StatusInternalServerError)
+			return
+		}
+	} else {
+		// Retrieve records for the specified model.
+		records := r.getRecordsByModel(model)
+		if records == nil {
+			// No records found for the specified model.
+			http.Error(w, fmt.Sprintf("No records found for model '%s'", model), http.StatusNotFound)
+			return
+		}
+		if err := json.NewEncoder(w).Encode(records); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to encode records for model '%s': %v", model, err),
+				http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+func (r *OpenAIRecorder) handleStreamingRequests(w http.ResponseWriter, req *http.Request) {
+	// Set SSE headers.
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	// Create subscriber channel.
+	subscriberID := fmt.Sprintf("sub_%d", time.Now().UnixNano())
+	ch := make(chan *RequestResponsePair, 100)
+
+	// Register subscriber.
+	r.subMutex.Lock()
+	r.subscribers[subscriberID] = ch
+	r.subMutex.Unlock()
+
+	// Clean up on disconnect.
+	defer func() {
+		r.subMutex.Lock()
+		delete(r.subscribers, subscriberID)
+		close(ch)
+		r.subMutex.Unlock()
+	}()
+
+	// Optional: Send existing records first.
+	model := req.URL.Query().Get("model")
+	if includeExisting := req.URL.Query().Get("include_existing"); includeExisting == "true" {
+		r.sendExistingRecords(w, model)
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+		return
+	}
+
+	// Send heartbeat to establish connection.
+	fmt.Fprintf(w, "event: connected\ndata: {\"status\": \"connected\"}\n\n")
+	flusher.Flush()
+
+	for {
+		select {
+		case record, ok := <-ch:
+			if !ok {
 				return
 			}
-			if err := json.NewEncoder(w).Encode(allRecords); err != nil {
-				http.Error(w, fmt.Sprintf("Failed to encode all records: %v", err),
-					http.StatusInternalServerError)
-				return
+
+			// Filter by model if specified.
+			if model != "" && record.Model != model {
+				continue
 			}
-		} else {
-			// Retrieve records for the specified model.
-			records := r.getRecordsByModel(model)
-			if records == nil {
-				// No records found for the specified model.
-				http.Error(w, fmt.Sprintf("No records found for model '%s'", model), http.StatusNotFound)
-				return
+
+			// Send as SSE event.
+			jsonData, err := json.Marshal(record)
+			if err != nil {
+				continue
 			}
-			if err := json.NewEncoder(w).Encode(records); err != nil {
-				http.Error(w, fmt.Sprintf("Failed to encode records for model '%s': %v", model, err),
-					http.StatusInternalServerError)
-				return
-			}
+
+			fmt.Fprintf(w, "event: new_request\ndata: %s\n\n", jsonData)
+			flusher.Flush()
+
+		case <-req.Context().Done():
+			// Client disconnected.
+			return
 		}
 	}
 }
@@ -367,75 +447,6 @@ func (r *OpenAIRecorder) broadcastToSubscribers(record *RequestResponsePair) {
 		case ch <- record:
 		default:
 			// The channel is full, skip this subscriber.
-		}
-	}
-}
-
-func (r *OpenAIRecorder) StreamRequestsHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
-		// Set SSE headers.
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.Header().Set("Cache-Control", "no-cache")
-		w.Header().Set("Connection", "keep-alive")
-
-		// Create subscriber channel.
-		subscriberID := fmt.Sprintf("sub_%d", time.Now().UnixNano())
-		ch := make(chan *RequestResponsePair, 100)
-
-		// Register subscriber.
-		r.subMutex.Lock()
-		r.subscribers[subscriberID] = ch
-		r.subMutex.Unlock()
-
-		// Clean up on disconnect.
-		defer func() {
-			r.subMutex.Lock()
-			delete(r.subscribers, subscriberID)
-			close(ch)
-			r.subMutex.Unlock()
-		}()
-
-		// Optional: Send existing records first.
-		model := req.URL.Query().Get("model")
-		if includeExisting := req.URL.Query().Get("include_existing"); includeExisting == "true" {
-			r.sendExistingRecords(w, model)
-		}
-
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			http.Error(w, "Streaming not supported", http.StatusInternalServerError)
-			return
-		}
-
-		// Send heartbeat to establish connection.
-		fmt.Fprintf(w, "event: connected\ndata: {\"status\": \"connected\"}\n\n")
-		flusher.Flush()
-
-		for {
-			select {
-			case record, ok := <-ch:
-				if !ok {
-					return
-				}
-
-				// Filter by model if specified.
-				if model != "" && record.Model != model {
-					continue
-				}
-
-				// Send as SSE event.
-				jsonData, err := json.Marshal(record)
-				if err != nil {
-					continue
-				}
-
-				fmt.Fprintf(w, "event: new_request\ndata: %s\n\n", jsonData)
-				flusher.Flush()
-
-			case <-req.Context().Done():
-				// Client disconnected.
-				return
-			}
 		}
 	}
 }

@@ -118,7 +118,6 @@ func (s *Scheduler) routeHandlers() map[string]http.HandlerFunc {
 	m["POST "+inference.InferencePrefix+"/{backend}/_configure"] = s.Configure
 	m["POST "+inference.InferencePrefix+"/_configure"] = s.Configure
 	m["GET "+inference.InferencePrefix+"/requests"] = s.openAIRecorder.GetRecordsHandler()
-	m["GET "+inference.InferencePrefix+"/requests/stream"] = s.openAIRecorder.StreamRequestsHandler()
 	return m
 }
 
