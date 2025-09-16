@@ -388,6 +388,8 @@ func (r *OpenAIRecorder) handleStreamingRequests(w http.ResponseWriter, req *htt
 			}
 
 			// Filter by model if specified.
+			// modelRecords is assumed to have size 1 because that's how we call broadcastToSubscribers.
+			// We do this so we don't need to query a 2nd time for the model config.
 			if model != "" && len(modelRecords) > 0 && modelRecords[0].Model != model {
 				continue
 			}
