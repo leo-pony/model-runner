@@ -377,7 +377,9 @@ func (r *OpenAIRecorder) handleStreamingRequests(w http.ResponseWriter, req *htt
 	}
 
 	// Send heartbeat to establish connection.
-	fmt.Fprintf(w, "event: connected\ndata: {\"status\": \"connected\"}\n\n")
+	if _, err := fmt.Fprintf(w, "event: connected\ndata: {\"status\": \"connected\"}\n\n"); err != nil {
+		r.log.Errorf("Failed to write connected event to response: %v", err)
+	}
 	flusher.Flush()
 
 	for {
@@ -397,13 +399,18 @@ func (r *OpenAIRecorder) handleStreamingRequests(w http.ResponseWriter, req *htt
 			// Send as SSE event.
 			jsonData, err := json.Marshal(modelRecords)
 			if err != nil {
+				r.log.Errorf("Failed to marshal record for streaming: %v", err)
 				errorMsg := fmt.Sprintf(`{"error": "Failed to marshal record: %v"}`, err)
-				fmt.Fprintf(w, "event: error\ndata: %s\n\n", errorMsg)
+				if _, writeErr := fmt.Fprintf(w, "event: error\ndata: %s\n\n", errorMsg); writeErr != nil {
+					r.log.Errorf("Failed to write error event to response: %v", writeErr)
+				}
 				flusher.Flush()
 				continue
 			}
 
-			fmt.Fprintf(w, "event: new_request\ndata: %s\n\n", jsonData)
+			if _, err := fmt.Fprintf(w, "event: new_request\ndata: %s\n\n", jsonData); err != nil {
+				r.log.Errorf("Failed to write new_request event to response: %v", err)
+			}
 			flusher.Flush()
 
 		case <-req.Context().Done():
@@ -496,10 +503,15 @@ func (r *OpenAIRecorder) sendExistingRecords(w http.ResponseWriter, model string
 				}}
 				jsonData, err := json.Marshal(singleRecord)
 				if err != nil {
+					r.log.Errorf("Failed to marshal existing record for streaming: %v", err)
 					errorMsg := fmt.Sprintf(`{"error": "Failed to marshal existing record: %v"}`, err)
-					fmt.Fprintf(w, "event: error\ndata: %s\n\n", errorMsg)
+					if _, writeErr := fmt.Fprintf(w, "event: error\ndata: %s\n\n", errorMsg); writeErr != nil {
+						r.log.Errorf("Failed to write error event to response: %v", writeErr)
+					}
 				} else {
-					fmt.Fprintf(w, "event: existing_request\ndata: %s\n\n", jsonData)
+					if _, writeErr := fmt.Fprintf(w, "event: existing_request\ndata: %s\n\n", jsonData); writeErr != nil {
+						r.log.Errorf("Failed to write existing_request event to response: %v", writeErr)
+					}
 				}
 			}
 		}
