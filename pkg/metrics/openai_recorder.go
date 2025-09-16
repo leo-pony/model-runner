@@ -316,9 +316,7 @@ func (r *OpenAIRecorder) handleJSONRequests(w http.ResponseWriter, req *http.Req
 		// Retrieve all records for all models.
 		allRecords := r.getAllRecords()
 		if allRecords == nil {
-			// No records found.
-			http.Error(w, "No records found", http.StatusNotFound)
-			return
+			allRecords = []ModelRecordsResponse{}
 		}
 		if err := json.NewEncoder(w).Encode(allRecords); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to encode all records: %v", err),
@@ -329,9 +327,7 @@ func (r *OpenAIRecorder) handleJSONRequests(w http.ResponseWriter, req *http.Req
 		// Retrieve records for the specified model.
 		records := r.getRecordsByModel(model)
 		if records == nil {
-			// No records found for the specified model.
-			http.Error(w, fmt.Sprintf("No records found for model '%s'", model), http.StatusNotFound)
-			return
+			records = []ModelRecordsResponse{}
 		}
 		if err := json.NewEncoder(w).Encode(records); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to encode records for model '%s': %v", model, err),
