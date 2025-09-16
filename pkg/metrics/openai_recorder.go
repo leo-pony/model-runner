@@ -397,6 +397,9 @@ func (r *OpenAIRecorder) handleStreamingRequests(w http.ResponseWriter, req *htt
 			// Send as SSE event.
 			jsonData, err := json.Marshal(modelRecords)
 			if err != nil {
+				errorMsg := fmt.Sprintf(`{"error": "Failed to marshal record: %v"}`, err)
+				fmt.Fprintf(w, "event: error\ndata: %s\n\n", errorMsg)
+				flusher.Flush()
 				continue
 			}
 
@@ -492,7 +495,10 @@ func (r *OpenAIRecorder) sendExistingRecords(w http.ResponseWriter, model string
 					},
 				}}
 				jsonData, err := json.Marshal(singleRecord)
-				if err == nil {
+				if err != nil {
+					errorMsg := fmt.Sprintf(`{"error": "Failed to marshal existing record: %v"}`, err)
+					fmt.Fprintf(w, "event: error\ndata: %s\n\n", errorMsg)
+				} else {
 					fmt.Fprintf(w, "event: existing_request\ndata: %s\n\n", jsonData)
 				}
 			}
