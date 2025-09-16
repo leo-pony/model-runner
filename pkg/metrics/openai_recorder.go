@@ -18,6 +18,9 @@ import (
 // per model.
 const maximumRecordsPerModel = 10
 
+// subscriberChannelBuffer is the buffer size for subscriber channels.
+const subscriberChannelBuffer = 100
+
 type responseRecorder struct {
 	http.ResponseWriter
 	body       *bytes.Buffer
@@ -71,7 +74,7 @@ type OpenAIRecorder struct {
 	m            sync.RWMutex
 
 	// streaming
-	subscribers map[string]chan *RequestResponsePair
+	subscribers map[string]chan []ModelRecordsResponse
 	subMutex    sync.RWMutex
 }
 
@@ -80,7 +83,7 @@ func NewOpenAIRecorder(log logging.Logger, modelManager *models.Manager) *OpenAI
 		log:          log,
 		modelManager: modelManager,
 		records:      make(map[string]*ModelData),
-		subscribers:  make(map[string]chan *RequestResponsePair),
+		subscribers:  make(map[string]chan []ModelRecordsResponse),
 	}
 }
 
@@ -193,7 +196,18 @@ func (r *OpenAIRecorder) RecordResponse(id, model string, rw http.ResponseWriter
 					record.Response = response
 					record.Error = "" // Ensure Error is empty for successful responses
 				}
-				go r.broadcastToSubscribers(record)
+				// Create ModelRecordsResponse with this single updated record to match
+				// what the non-streaming endpoint returns - []ModelRecordsResponse.
+				// See getAllRecords and getRecordsByModel.
+				modelResponse := []ModelRecordsResponse{{
+					Count: 1,
+					Model: model,
+					ModelData: ModelData{
+						Config:  modelData.Config,
+						Records: []*RequestResponsePair{record},
+					},
+				}}
+				go r.broadcastToSubscribers(modelResponse)
 				return
 			}
 		}
@@ -335,7 +349,7 @@ func (r *OpenAIRecorder) handleStreamingRequests(w http.ResponseWriter, req *htt
 
 	// Create subscriber channel.
 	subscriberID := fmt.Sprintf("sub_%d", time.Now().UnixNano())
-	ch := make(chan *RequestResponsePair, 100)
+	ch := make(chan []ModelRecordsResponse, subscriberChannelBuffer)
 
 	// Register subscriber.
 	r.subMutex.Lock()
@@ -368,18 +382,18 @@ func (r *OpenAIRecorder) handleStreamingRequests(w http.ResponseWriter, req *htt
 
 	for {
 		select {
-		case record, ok := <-ch:
+		case modelRecords, ok := <-ch:
 			if !ok {
 				return
 			}
 
 			// Filter by model if specified.
-			if model != "" && record.Model != model {
+			if model != "" && len(modelRecords) > 0 && modelRecords[0].Model != model {
 				continue
 			}
 
 			// Send as SSE event.
-			jsonData, err := json.Marshal(record)
+			jsonData, err := json.Marshal(modelRecords)
 			if err != nil {
 				continue
 			}
@@ -438,13 +452,13 @@ func (r *OpenAIRecorder) getRecordsByModel(model string) []ModelRecordsResponse 
 	return nil
 }
 
-func (r *OpenAIRecorder) broadcastToSubscribers(record *RequestResponsePair) {
+func (r *OpenAIRecorder) broadcastToSubscribers(modelResponses []ModelRecordsResponse) {
 	r.subMutex.RLock()
 	defer r.subMutex.RUnlock()
 
 	for _, ch := range r.subscribers {
 		select {
-		case ch <- record:
+		case ch <- modelResponses:
 		default:
 			// The channel is full, skip this subscriber.
 		}
@@ -461,13 +475,24 @@ func (r *OpenAIRecorder) sendExistingRecords(w http.ResponseWriter, model string
 	}
 
 	if records != nil {
-		for _, modelResponse := range records {
-			for _, record := range modelResponse.Records {
-				jsonData, err := json.Marshal(record)
-				if err != nil {
-					continue
+		// Send each individual request-response pair as a separate event.
+		for _, modelRecord := range records {
+			for _, requestRecord := range modelRecord.Records {
+				// Create a ModelRecordsResponse with a single record to match
+				// what the non-streaming endpoint returns - []ModelRecordsResponse.
+				// See getAllRecords and getRecordsByModel.
+				singleRecord := []ModelRecordsResponse{{
+					Count: 1,
+					Model: modelRecord.Model,
+					ModelData: ModelData{
+						Config:  modelRecord.Config,
+						Records: []*RequestResponsePair{requestRecord},
+					},
+				}}
+				jsonData, err := json.Marshal(singleRecord)
+				if err == nil {
+					fmt.Fprintf(w, "event: existing_request\ndata: %s\n\n", jsonData)
 				}
-				fmt.Fprintf(w, "event: existing_request\ndata: %s\n\n", jsonData)
 			}
 		}
 	}
