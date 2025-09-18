@@ -152,6 +152,23 @@ func TestGetArgs(t *testing.T) {
 			},
 		},
 		{
+			name: "chat template from model artifact",
+			mode: inference.BackendModeCompletion,
+			bundle: &fakeBundle{
+				ggufPath:     modelPath,
+				templatePath: "/path/to/bundle/template.jinja",
+			},
+			expected: []string{
+				"--jinja",
+				"-ngl", "999",
+				"--metrics",
+				"--model", modelPath,
+				"--host", socket,
+				"--chat-template-file", "/path/to/bundle/template.jinja",
+				"--ctx-size", "4096",
+			},
+		},
+		{
 			name: "raw flags from backend config",
 			mode: inference.BackendModeEmbedding,
 			bundle: &fakeBundle{
@@ -251,8 +268,13 @@ func TestContainsArg(t *testing.T) {
 var _ types.ModelBundle = &fakeBundle{}
 
 type fakeBundle struct {
-	ggufPath string
-	config   types.Config
+	ggufPath     string
+	config       types.Config
+	templatePath string
+}
+
+func (f *fakeBundle) ChatTemplatePath() string {
+	return f.templatePath
 }
 
 func (f *fakeBundle) RootDir() string {

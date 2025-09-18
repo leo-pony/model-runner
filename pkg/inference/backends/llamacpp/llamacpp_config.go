@@ -49,8 +49,16 @@ func (c *Config) GetArgs(bundle types.ModelBundle, socket string, mode inference
 	args = append(args, "--model", modelPath, "--host", socket)
 
 	// Add mode-specific arguments
-	if mode == inference.BackendModeEmbedding {
+	switch mode {
+	case inference.BackendModeCompletion:
+		// Add arguments for chat template file
+		if path := bundle.ChatTemplatePath(); path != "" {
+			args = append(args, "--chat-template-file", path)
+		}
+	case inference.BackendModeEmbedding:
 		args = append(args, "--embeddings")
+	default:
+		return nil, fmt.Errorf("unsupported backend mode %q", mode)
 	}
 
 	// Add context size from model config or backend config
