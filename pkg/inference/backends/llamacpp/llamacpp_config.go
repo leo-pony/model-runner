@@ -57,6 +57,8 @@ func (c *Config) GetArgs(bundle types.ModelBundle, socket string, mode inference
 		}
 	case inference.BackendModeEmbedding:
 		args = append(args, "--embeddings")
+	default:
+		return nil, fmt.Errorf("unsupported backend mode %q", mode)
 	}
 
 	// Add context size from model config or backend config
