@@ -1,6 +1,8 @@
 package memory
 
 import (
+	"errors"
+
 	"github.com/docker/model-runner/pkg/gpuinfo"
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/logging"
@@ -8,7 +10,7 @@ import (
 )
 
 type SystemMemoryInfo interface {
-	HaveSufficientMemory(inference.RequiredMemory) bool
+	HaveSufficientMemory(inference.RequiredMemory) (bool, error)
 	GetTotalMemory() inference.RequiredMemory
 }
 
@@ -46,8 +48,15 @@ func NewSystemMemoryInfo(log logging.Logger, gpuInfo *gpuinfo.GPUInfo) (SystemMe
 	}, nil
 }
 
-func (s *systemMemoryInfo) HaveSufficientMemory(req inference.RequiredMemory) bool {
-	return req.RAM <= s.totalMemory.RAM && req.VRAM <= s.totalMemory.VRAM
+func (s *systemMemoryInfo) HaveSufficientMemory(req inference.RequiredMemory) (bool, error) {
+	// Sentinel value of 1 indicates unknown RAM/VRAM
+	if req.RAM > 1 && s.totalMemory.RAM == 1 {
+		return false, errors.New("system RAM unknown")
+	}
+	if req.VRAM > 1 && s.totalMemory.VRAM == 1 {
+		return false, errors.New("system VRAM unknown")
+	}
+	return req.RAM <= s.totalMemory.RAM && req.VRAM <= s.totalMemory.VRAM, nil
 }
 
 func (s *systemMemoryInfo) GetTotalMemory() inference.RequiredMemory {

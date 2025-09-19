@@ -44,5 +44,10 @@ func (m *memoryEstimator) HaveSufficientMemoryForModel(ctx context.Context, mode
 	if err != nil {
 		return false, inference.RequiredMemory{}, inference.RequiredMemory{}, fmt.Errorf("estimating required memory for model: %w", err)
 	}
-	return m.systemMemoryInfo.HaveSufficientMemory(req), req, m.systemMemoryInfo.GetTotalMemory(), nil
+
+	ok, err := m.systemMemoryInfo.HaveSufficientMemory(req)
+	if err != nil {
+		return false, req, inference.RequiredMemory{}, fmt.Errorf("checking if system has sufficient memory: %w", err)
+	}
+	return ok, req, m.systemMemoryInfo.GetTotalMemory(), nil
 }
