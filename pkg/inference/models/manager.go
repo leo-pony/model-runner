@@ -165,7 +165,7 @@ func (m *Manager) handleCreateModel(w http.ResponseWriter, r *http.Request) {
 		m.log.Infof("Will estimate memory required for %q", request.From)
 		proceed, req, totalMem, err := m.memoryEstimator.HaveSufficientMemoryForModel(r.Context(), request.From, nil)
 		if err != nil {
-			m.log.Warnf("Failed validate sufficient system memory for model %q: %s", request.From, err)
+			m.log.Warnf("Failed to validate sufficient system memory for model %q: %s", request.From, err)
 			// Prefer staying functional in case of unexpected estimation errors.
 			proceed = true
 		}
