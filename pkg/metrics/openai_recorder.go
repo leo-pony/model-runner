@@ -3,6 +3,7 @@ package metrics
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -20,6 +21,31 @@ const maximumRecordsPerModel = 10
 
 // subscriberChannelBuffer is the buffer size for subscriber channels.
 const subscriberChannelBuffer = 100
+
+// defaultStreamingErrorCode is the default code for streaming errors.
+const defaultStreamingErrorCode = http.StatusBadRequest
+
+// StreamingError represents an error that occurred during streaming response processing.
+// It contains the HTTP status code and additional context about the error.
+type StreamingError struct {
+	StatusCode int    `json:"status_code"`
+	Message    string `json:"message"`
+	Type       string `json:"type,omitempty"`
+	Details    string `json:"details,omitempty"`
+}
+
+// Error implements the error interface for StreamingError.
+func (e *StreamingError) Error() string {
+	if e.Type != "" {
+		return fmt.Sprintf("streaming error (code %d, type %s): %s", e.StatusCode, e.Type, e.Message)
+	}
+	return fmt.Sprintf("streaming error (code %d): %s", e.StatusCode, e.Message)
+}
+
+// StatusCode returns the HTTP status code associated with this streaming error.
+func (e *StreamingError) GetStatusCode() int {
+	return e.StatusCode
+}
 
 type responseRecorder struct {
 	http.ResponseWriter
@@ -162,6 +188,65 @@ func (r *OpenAIRecorder) NewResponseRecorder(w http.ResponseWriter) http.Respons
 	return rc
 }
 
+// normalizeErrorToJSON ensures the error content is always valid JSON.
+// If the error content is already valid JSON, it is returned as-is.
+// If not, it is wrapped in a JSON object with an "error" field.
+func (r *OpenAIRecorder) normalizeErrorToJSON(errorContent string) string {
+	if errorContent == "" {
+		return `{"error": "unknown error"}`
+	}
+
+	// Try to parse as JSON to check if it's already valid
+	var jsonTest interface{}
+	if err := json.Unmarshal([]byte(errorContent), &jsonTest); err == nil {
+		// Already valid JSON, return as-is
+		return errorContent
+	}
+
+	// Not valid JSON, wrap it in a JSON object
+	// Escape the content properly for JSON
+	escapedContent, err := json.Marshal(errorContent)
+	if err != nil {
+		// If marshaling fails, create a simple error object
+		return `{"error": "Failed to process error content"}`
+	}
+
+	return fmt.Sprintf(`{"error": %s}`, string(escapedContent))
+}
+
+// handleErrorRecording handles the logic for recording errors and responses based on
+// streaming errors and HTTP status codes.
+func (r *OpenAIRecorder) handleErrorRecording(record *RequestResponsePair, streamingErr error, response string, statusCode int) {
+	if streamingErr != nil {
+		record.Error = r.serializeStreamingError(streamingErr)
+		record.Response = ""
+		return
+	}
+
+	if statusCode >= 400 {
+		record.Error = r.normalizeErrorToJSON(response)
+		record.Response = ""
+		return
+	}
+
+	// Success case
+	record.Response = response
+	record.Error = ""
+}
+
+// serializeStreamingError handles the serialization of streaming errors.
+// It attempts to serialize StreamingError types directly to JSON for rich error structure,
+// falling back to normalized JSON for other error types.
+func (r *OpenAIRecorder) serializeStreamingError(err error) string {
+	var streamingError *StreamingError
+	if errors.As(err, &streamingError) {
+		if errorJSON, marshalErr := json.Marshal(streamingError); marshalErr == nil {
+			return string(errorJSON)
+		}
+	}
+	return r.normalizeErrorToJSON(err.Error())
+}
+
 func (r *OpenAIRecorder) RecordResponse(id, model string, rw http.ResponseWriter) {
 	rr := rw.(*responseRecorder)
 
@@ -173,8 +258,9 @@ func (r *OpenAIRecorder) RecordResponse(id, model string, rw http.ResponseWriter
 	}
 
 	var response string
+	var streamingErr error
 	if strings.Contains(responseBody, "data: ") {
-		response = r.convertStreamingResponse(responseBody)
+		response, streamingErr = r.convertStreamingResponse(responseBody)
 	} else {
 		response = responseBody
 	}
@@ -188,14 +274,7 @@ func (r *OpenAIRecorder) RecordResponse(id, model string, rw http.ResponseWriter
 		for _, record := range modelData.Records {
 			if record.ID == id {
 				record.StatusCode = statusCode
-				// Populate either Response or Error field based on status code
-				if statusCode >= 400 {
-					record.Error = response
-					record.Response = "" // Ensure Response is empty for errors
-				} else {
-					record.Response = response
-					record.Error = "" // Ensure Error is empty for successful responses
-				}
+				r.handleErrorRecording(record, streamingErr, response, statusCode)
 				// Create ModelRecordsResponse with this single updated record to match
 				// what the non-streaming endpoint returns - []ModelRecordsResponse.
 				// See getAllRecords and getRecordsByModel.
@@ -217,13 +296,57 @@ func (r *OpenAIRecorder) RecordResponse(id, model string, rw http.ResponseWriter
 	}
 }
 
-func (r *OpenAIRecorder) convertStreamingResponse(streamingBody string) string {
+// convertStreamingResponse converts a streaming response body into a standard JSON response.
+// It handles both successful streaming completions and streaming errors.
+// If a streaming error is detected, it returns the original streaming body and the error.
+// If successful, it reconstructs the final response in standard JSON format.
+func (r *OpenAIRecorder) convertStreamingResponse(streamingBody string) (string, error) {
 	lines := strings.Split(streamingBody, "\n")
 	var contentBuilder strings.Builder
 	var reasoningContentBuilder strings.Builder
 	var lastChoice, lastChunk map[string]interface{}
 
 	for _, line := range lines {
+		// Check for error lines in the streaming format
+		if strings.HasPrefix(line, "error: ") {
+			errorData := strings.TrimPrefix(line, "error: ")
+			var errorObj map[string]interface{}
+			if err := json.Unmarshal([]byte(errorData), &errorObj); err == nil {
+				// Create a StreamingError with extracted information
+				streamingErr := &StreamingError{
+					StatusCode: defaultStreamingErrorCode,
+					Message:    "streaming error",
+				}
+
+				// Extract error code if available
+				if code, ok := errorObj["code"].(float64); ok {
+					streamingErr.StatusCode = int(code)
+				}
+
+				// Extract error message if available
+				if message, ok := errorObj["message"].(string); ok {
+					streamingErr.Message = message
+				}
+
+				// Extract error type if available
+				if errorType, ok := errorObj["type"].(string); ok {
+					streamingErr.Type = errorType
+				}
+
+				// Store original error data as details
+				streamingErr.Details = errorData
+
+				// Return the original streaming body for error cases
+				return streamingBody, streamingErr
+			}
+			// If we can't parse the error JSON, create a generic error
+			return streamingBody, &StreamingError{
+				StatusCode: defaultStreamingErrorCode,
+				Message:    "unparseable streaming error",
+				Details:    errorData,
+			}
+		}
+
 		if strings.HasPrefix(line, "data: ") {
 			data := strings.TrimPrefix(line, "data: ")
 			if data == "[DONE]" {
@@ -254,7 +377,7 @@ func (r *OpenAIRecorder) convertStreamingResponse(streamingBody string) string {
 	}
 
 	if lastChunk == nil {
-		return streamingBody
+		return streamingBody, nil
 	}
 
 	finalResponse := make(map[string]interface{})
@@ -286,10 +409,10 @@ func (r *OpenAIRecorder) convertStreamingResponse(streamingBody string) string {
 
 	jsonResult, err := json.Marshal(finalResponse)
 	if err != nil {
-		return streamingBody
+		return streamingBody, nil
 	}
 
-	return string(jsonResult)
+	return string(jsonResult), nil
 }
 
 func (r *OpenAIRecorder) GetRecordsHandler() http.HandlerFunc {
