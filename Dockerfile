@@ -38,8 +38,14 @@ FROM ${BASE_IMAGE} AS final
 # Create non-root user
 RUN groupadd --system modelrunner && useradd --system --gid modelrunner --create-home --home-dir /home/modelrunner modelrunner
 
-# Install ca-certificates for HTTPS
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+# Install ca-certificates for HTTPS and vulkan
+RUN apt-get update && \
+    packages="ca-certificates" && \
+    if [ "${LLAMA_SERVER_VARIANT}" = "generic" ] || [ "${LLAMA_SERVER_VARIANT}" = "cpu" ]; then \
+        packages="$packages libvulkan1"; \
+    fi && \
+    apt-get install -y --no-install-recommends "$packages" && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
