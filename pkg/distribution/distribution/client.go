@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/docker/model-runner/pkg/distribution/internal/utils"
 	"github.com/sirupsen/logrus"
 
 	"github.com/docker/model-runner/pkg/distribution/internal/progress"
@@ -134,7 +135,7 @@ func NewClient(opts ...Option) (*Client, error) {
 
 // PullModel pulls a model from a registry and returns the local file path
 func (c *Client) PullModel(ctx context.Context, reference string, progressWriter io.Writer) error {
-	c.log.Infoln("Starting model pull:", reference)
+	c.log.Infoln("Starting model pull:", utils.SanitizeForLog(reference))
 
 	remoteModel, err := c.registry.Model(ctx, reference)
 	if err != nil {
@@ -157,7 +158,7 @@ func (c *Client) PullModel(ctx context.Context, reference string, progressWriter
 	// Check if model exists in local store
 	localModel, err := c.store.Read(remoteDigest.String())
 	if err == nil {
-		c.log.Infoln("Model found in local store:", reference)
+		c.log.Infoln("Model found in local store:", utils.SanitizeForLog(reference))
 		cfg, err := localModel.Config()
 		if err != nil {
 			return fmt.Errorf("getting cached model config: %w", err)
@@ -176,7 +177,7 @@ func (c *Client) PullModel(ctx context.Context, reference string, progressWriter
 		}
 		return nil
 	} else {
-		c.log.Infoln("Model not found in local store, pulling from remote:", reference)
+		c.log.Infoln("Model not found in local store, pulling from remote:", utils.SanitizeForLog(reference))
 	}
 
 	// Model doesn't exist in local store or digests don't match, pull from remote
@@ -211,7 +212,7 @@ func (c *Client) LoadModel(r io.Reader, progressWriter io.Writer) (string, error
 		}
 		if err != nil {
 			if errors.Is(err, io.ErrUnexpectedEOF) {
-				c.log.Infof("Model load interrupted (likely cancelled): %v", err)
+				c.log.Infof("Model load interrupted (likely cancelled): %s", utils.SanitizeForLog(err.Error()))
 				return "", fmt.Errorf("model load interrupted: %w", err)
 			}
 			return "", fmt.Errorf("reading blob from stream: %w", err)
@@ -268,10 +269,10 @@ func (c *Client) ListModels() ([]types.Model, error) {
 
 // GetModel returns a model by reference
 func (c *Client) GetModel(reference string) (types.Model, error) {
-	c.log.Infoln("Getting model by reference:", reference)
+	c.log.Infoln("Getting model by reference:", utils.SanitizeForLog(reference))
 	model, err := c.store.Read(reference)
 	if err != nil {
-		c.log.Errorln("Failed to get model:", err, "reference:", reference)
+		c.log.Errorln("Failed to get model:", err, "reference:", utils.SanitizeForLog(reference))
 		return nil, fmt.Errorf("get model '%q': %w", reference, err)
 	}
 
@@ -280,7 +281,7 @@ func (c *Client) GetModel(reference string) (types.Model, error) {
 
 // IsModelInStore checks if a model with the given reference is in the local store
 func (c *Client) IsModelInStore(reference string) (bool, error) {
-	c.log.Infoln("Checking model by reference:", reference)
+	c.log.Infoln("Checking model by reference:", utils.SanitizeForLog(reference))
 	if _, err := c.store.Read(reference); errors.Is(err, ErrModelNotFound) {
 		return false, nil
 	} else if err != nil {
@@ -349,7 +350,7 @@ func (c *Client) DeleteModel(reference string, force bool) (*DeleteModelResponse
 
 // Tag adds a tag to a model
 func (c *Client) Tag(source string, target string) error {
-	c.log.Infoln("Tagging model, source:", source, "target:", target)
+	c.log.Infoln("Tagging model, source:", source, "target:", utils.SanitizeForLog(target))
 	return c.store.AddTags(source, []string{target})
 }
 
