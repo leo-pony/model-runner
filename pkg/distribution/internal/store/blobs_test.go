@@ -41,7 +41,11 @@ func TestBlobs(t *testing.T) {
 		}
 
 		// ensure blob file exists
-		content, err := os.ReadFile(store.blobPath(hash))
+		blobPath, err := store.blobPath(hash)
+		if err != nil {
+			t.Fatalf("error getting blob path: %v", err)
+		}
+		content, err := os.ReadFile(blobPath)
 		if err != nil {
 			t.Fatalf("error reading blob file: %v", err)
 		}
@@ -52,7 +56,11 @@ func TestBlobs(t *testing.T) {
 		}
 
 		// ensure incomplete blob file does not exist
-		tmpFile := incompletePath(store.blobPath(hash))
+		blobPath, err = store.blobPath(hash)
+		if err != nil {
+			t.Fatalf("error getting blob path: %v", err)
+		}
+		tmpFile := incompletePath(blobPath)
 		if _, err := os.Stat(tmpFile); !errors.Is(err, os.ErrNotExist) {
 			t.Fatalf("expected incomplete blob file %s not be present", tmpFile)
 		}
@@ -61,10 +69,14 @@ func TestBlobs(t *testing.T) {
 	t.Run("WriteBlob fails", func(t *testing.T) {
 		// simulate lingering incomplete blob file (if program crashed)
 		hash := v1.Hash{
-			Algorithm: "some-alg",
-			Hex:       "some-hash",
+			Algorithm: "sha256",
+			Hex:       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 		}
-		if err := writeFile(incompletePath(store.blobPath(hash)), []byte("incomplete")); err != nil {
+		blobPath, err := store.blobPath(hash)
+		if err != nil {
+			t.Fatalf("error getting blob path: %v", err)
+		}
+		if err := writeFile(incompletePath(blobPath), []byte("incomplete")); err != nil {
 			t.Fatalf("error creating incomplete blob file for test: %v", err)
 		}
 
@@ -73,12 +85,20 @@ func TestBlobs(t *testing.T) {
 		}
 
 		// ensure blob file does not exist
-		if _, err := os.ReadFile(store.blobPath(hash)); !errors.Is(err, os.ErrNotExist) {
+		blobPath2, err := store.blobPath(hash)
+		if err != nil {
+			t.Fatalf("error getting blob path: %v", err)
+		}
+		if _, err := os.ReadFile(blobPath2); !errors.Is(err, os.ErrNotExist) {
 			t.Fatalf("expected blob file not to exist")
 		}
 
 		// ensure incomplete file is not left behind
-		if _, err := os.ReadFile(incompletePath(store.blobPath(hash))); !errors.Is(err, os.ErrNotExist) {
+		blobPath3, err := store.blobPath(hash)
+		if err != nil {
+			t.Fatalf("error getting blob path: %v", err)
+		}
+		if _, err := os.ReadFile(incompletePath(blobPath3)); !errors.Is(err, os.ErrNotExist) {
 			t.Fatalf("expected incomplete blob file not to exist")
 		}
 	})
@@ -86,8 +106,8 @@ func TestBlobs(t *testing.T) {
 	t.Run("WriteBlob reuses existing blob", func(t *testing.T) {
 		// simulate existing blob
 		hash := v1.Hash{
-			Algorithm: "some-alg",
-			Hex:       "some-hash",
+			Algorithm: "sha256",
+			Hex:       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 		}
 
 		if err := store.WriteBlob(hash, bytes.NewReader([]byte("some-data"))); err != nil {
@@ -99,7 +119,11 @@ func TestBlobs(t *testing.T) {
 		}
 
 		// ensure blob file exists
-		content, err := os.ReadFile(store.blobPath(hash))
+		blobPath4, err := store.blobPath(hash)
+		if err != nil {
+			t.Fatalf("error getting blob path: %v", err)
+		}
+		content, err := os.ReadFile(blobPath4)
 		if err != nil {
 			t.Fatalf("error reading blob file: %v", err)
 		}

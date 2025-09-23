@@ -35,15 +35,23 @@ func (s *LocalStore) newModel(digest v1.Hash, tags []string) (*Model, error) {
 		return nil, fmt.Errorf("parse manifest: %w", err)
 	}
 
-	rawConfigFile, err := os.ReadFile(s.blobPath(manifest.Config.Digest))
+	configPath, err := s.blobPath(manifest.Config.Digest)
+	if err != nil {
+		return nil, fmt.Errorf("get config blob path: %w", err)
+	}
+	rawConfigFile, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("read config file: %w", err)
 	}
 
 	layers := make([]v1.Layer, len(manifest.Layers))
 	for i, ld := range manifest.Layers {
+		layerPath, err := s.blobPath(ld.Digest)
+		if err != nil {
+			return nil, fmt.Errorf("get layer blob path: %w", err)
+		}
 		layers[i] = &mdpartial.Layer{
-			Path:       s.blobPath(ld.Digest),
+			Path:       layerPath,
 			Descriptor: ld,
 		}
 	}
