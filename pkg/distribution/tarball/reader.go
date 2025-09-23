@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"path/filepath"
 	"strings"
@@ -40,7 +41,7 @@ func (r *Reader) Next() (v1.Hash, error) {
 			}
 			return v1.Hash{}, err
 		}
-		//fi := hdr.FileInfo()
+		// fi := hdr.FileInfo()
 		if !(hdr.Typeflag == tar.TypeReg) {
 			continue
 		}
@@ -61,7 +62,11 @@ func (r *Reader) Next() (v1.Hash, error) {
 			}
 			continue
 		}
-		parts := strings.Split(filepath.Clean(hdr.Name), "/")
+		cleanPath := filepath.Clean(hdr.Name)
+		if strings.Contains(cleanPath, "..") {
+			return v1.Hash{}, fmt.Errorf("invalid path detected: %s", hdr.Name)
+		}
+		parts := strings.Split(cleanPath, "/")
 		if len(parts) != 3 || parts[0] != "blobs" && parts[0] != "manifests" {
 			continue
 		}
