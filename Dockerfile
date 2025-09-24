@@ -35,6 +35,8 @@ FROM docker/docker-model-backend-llamacpp:${LLAMA_SERVER_VERSION}-${LLAMA_SERVER
 # --- Final image ---
 FROM ${BASE_IMAGE} AS final
 
+ARG LLAMA_SERVER_VARIANT
+
 # Create non-root user
 RUN groupadd --system modelrunner && useradd --system --gid modelrunner --create-home --home-dir /home/modelrunner modelrunner
 
@@ -44,7 +46,7 @@ RUN apt-get update && \
     if [ "${LLAMA_SERVER_VARIANT}" = "generic" ] || [ "${LLAMA_SERVER_VARIANT}" = "cpu" ]; then \
         packages="$packages libvulkan1"; \
     fi && \
-    apt-get install -y --no-install-recommends "$packages" && \
+    apt-get install -y --no-install-recommends $packages && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
