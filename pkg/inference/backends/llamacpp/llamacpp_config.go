@@ -20,8 +20,8 @@ type Config struct {
 func NewDefaultLlamaCppConfig() *Config {
 	args := append([]string{"--jinja", "-ngl", "999", "--metrics"})
 
-	// Special case for Windows ARM64
-	if runtime.GOOS == "windows" && runtime.GOARCH == "arm64" {
+	// Special case for ARM64
+	if runtime.GOARCH == "arm64" {
 		// Using a thread count equal to core count results in bad performance, and there seems to be little to no gain
 		// in going beyond core_count/2.
 		if !containsArg(args, "--threads") {
