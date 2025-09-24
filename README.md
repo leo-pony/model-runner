@@ -152,3 +152,9 @@ in the form of [a Helm chart and static YAML](charts/docker-model-runner/README.
 
 If you are interested in a specific Kubernetes use-case, please start a
 discussion on the issue tracker.
+
+## Community
+
+For general questions and discussion, please use [Docker Model Runner's Slack channel](https://app.slack.com/client/T0JK1PCN6/C09H9P5E57B).
+
+For discussions around issues/bugs and features, you can use GitHub Issues and Pull requests.
