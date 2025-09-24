@@ -10,3 +10,4 @@ vendor/
 # monorepo migration
 # model-distribution
 pkg/distribution/bin/
+/parallelget
