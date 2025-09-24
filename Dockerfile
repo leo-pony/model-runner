@@ -40,14 +40,10 @@ ARG LLAMA_SERVER_VARIANT
 # Create non-root user
 RUN groupadd --system modelrunner && useradd --system --gid modelrunner --create-home --home-dir /home/modelrunner modelrunner
 
+COPY scripts/apt-install.sh apt-install.sh
+
 # Install ca-certificates for HTTPS and vulkan
-RUN apt-get update && \
-    packages="ca-certificates" && \
-    if [ "${LLAMA_SERVER_VARIANT}" = "generic" ] || [ "${LLAMA_SERVER_VARIANT}" = "cpu" ]; then \
-        packages="$packages libvulkan1"; \
-    fi && \
-    apt-get install -y --no-install-recommends $packages && \
-    rm -rf /var/lib/apt/lists/*
+RUN ./apt-install.sh
 
 WORKDIR /app
 
