@@ -9,7 +9,7 @@ main() {
       packages+=("libvulkan1")
   fi
 
-  apt-get install -y --no-install-recommends "${packages[@]}"
+  apt-get install -y "${packages[@]}"
   rm -rf /var/lib/apt/lists/*
 }
 
