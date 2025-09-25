@@ -40,7 +40,6 @@ validate:
 # Build Docker image
 docker-build:
 	docker buildx build \
-		--platform linux/amd64,linux/arm64 \
 		--build-arg LLAMA_SERVER_VERSION=$(LLAMA_SERVER_VERSION) \
 		--build-arg LLAMA_SERVER_VARIANT=$(LLAMA_SERVER_VARIANT) \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
