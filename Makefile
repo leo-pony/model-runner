@@ -9,6 +9,7 @@ PORT := 8080
 MODELS_PATH := $(shell pwd)/models-store
 LLAMA_ARGS ?=
 DOCKER_BUILD_ARGS := \
+	--load \
 	--build-arg LLAMA_SERVER_VERSION=$(LLAMA_SERVER_VERSION) \
 	--build-arg LLAMA_SERVER_VARIANT=$(LLAMA_SERVER_VARIANT) \
 	--build-arg BASE_IMAGE=$(BASE_IMAGE) \
