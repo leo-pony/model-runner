@@ -8,9 +8,15 @@ DOCKER_IMAGE := docker/model-runner:latest
 PORT := 8080
 MODELS_PATH := $(shell pwd)/models-store
 LLAMA_ARGS ?=
+DOCKER_BUILD_ARGS := \
+	--load \
+	--build-arg LLAMA_SERVER_VERSION=$(LLAMA_SERVER_VERSION) \
+	--build-arg LLAMA_SERVER_VARIANT=$(LLAMA_SERVER_VARIANT) \
+	--build-arg BASE_IMAGE=$(BASE_IMAGE) \
+	-t $(DOCKER_IMAGE)
 
 # Main targets
-.PHONY: build run clean test docker-build docker-run help validate
+.PHONY: build run clean test docker-build docker-build-multiplatform docker-run help validate
 
 # Default target
 .DEFAULT_GOAL := help
@@ -39,12 +45,11 @@ validate:
 
 # Build Docker image
 docker-build:
-	docker buildx build \
-		--platform linux/amd64,linux/arm64 \
-		--build-arg LLAMA_SERVER_VERSION=$(LLAMA_SERVER_VERSION) \
-		--build-arg LLAMA_SERVER_VARIANT=$(LLAMA_SERVER_VARIANT) \
-		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
-		-t $(DOCKER_IMAGE) .
+	docker buildx build $(DOCKER_BUILD_ARGS) .
+
+# Build multi-platform Docker image
+docker-build-multiplatform:
+	docker buildx build --platform linux/amd64,linux/arm64 $(DOCKER_BUILD_ARGS) .
 
 # Run in Docker container with TCP port access and mounted model storage
 docker-run: docker-build
@@ -69,13 +74,14 @@ docker-run: docker-build
 # Show help
 help:
 	@echo "Available targets:"
-	@echo "  build          	- Build the Go application"
-	@echo "  run            	- Run the application locally"
-	@echo "  clean          	- Clean build artifacts"
-	@echo "  test           	- Run tests"
-	@echo "  docker-build   	- Build Docker image"
-	@echo "  docker-run     	- Run in Docker container with TCP port access and mounted model storage"
-	@echo "  help           	- Show this help message"
+	@echo "  build				- Build the Go application"
+	@echo "  run				- Run the application locally"
+	@echo "  clean				- Clean build artifacts"
+	@echo "  test				- Run tests"
+	@echo "  docker-build			- Build Docker image for current platform"
+	@echo "  docker-build-multiplatform	- Build Docker image for multiple platforms"
+	@echo "  docker-run			- Run in Docker container with TCP port access and mounted model storage"
+	@echo "  help				- Show this help message"
 	@echo ""
 	@echo "Backend configuration options:"
 	@echo "  LLAMA_ARGS    - Arguments for llama.cpp (e.g., \"--verbose --jinja -ngl 999 --ctx-size 2048\")"
