@@ -10,7 +10,7 @@ MODELS_PATH := $(shell pwd)/models-store
 LLAMA_ARGS ?=
 
 # Main targets
-.PHONY: build run clean test docker-build docker-run help
+.PHONY: build run clean test docker-build docker-run help validate
 
 # Default target
 .DEFAULT_GOAL := help
@@ -33,6 +33,9 @@ clean:
 # Run tests
 test:
 	go test -v ./...
+
+validate:
+	find . -type f -name "*.sh" | xargs shellcheck
 
 # Build Docker image
 docker-build:
