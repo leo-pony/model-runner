@@ -25,6 +25,9 @@ const subscriberChannelBuffer = 100
 // defaultStreamingErrorCode is the default code for streaming errors.
 const defaultStreamingErrorCode = http.StatusBadRequest
 
+// maxMediaDataLength is the maximum length of base64 media data to preserve before truncation.
+const maxMediaDataLength = 100
+
 // StreamingError represents an error that occurred during streaming response processing.
 // It contains the HTTP status code and additional context about the error.
 type StreamingError struct {
@@ -113,6 +116,90 @@ func NewOpenAIRecorder(log logging.Logger, modelManager *models.Manager) *OpenAI
 	}
 }
 
+// truncateMediaFields truncates large base64 media data in image_url.url and input_audio.data fields
+// to reduce memory usage while preserving request structure information.
+func (r *OpenAIRecorder) truncateMediaFields(requestBody []byte) []byte {
+	// Try to parse the JSON request
+	var requestData map[string]interface{}
+	if err := json.Unmarshal(requestBody, &requestData); err != nil {
+		// If we can't parse the JSON, return the original body
+		return requestBody
+	}
+
+	// Look for messages array
+	messages, ok := requestData["messages"].([]interface{})
+	if !ok {
+		// No messages array found, return original
+		return requestBody
+	}
+
+	// Process each message
+	for _, msg := range messages {
+		message, ok := msg.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		// Look for content array
+		content, ok := message["content"].([]interface{})
+		if !ok {
+			continue
+		}
+
+		// Process each content item
+		for _, contentItem := range content {
+			item, ok := contentItem.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			// Handle image_url fields
+			if imageURL, exists := item["image_url"].(map[string]interface{}); exists {
+				if url, urlExists := imageURL["url"].(string); urlExists {
+					imageURL["url"] = r.truncateBase64Data(url)
+				}
+			}
+
+			// Handle input_audio fields
+			if inputAudio, exists := item["input_audio"].(map[string]interface{}); exists {
+				if data, dataExists := inputAudio["data"].(string); dataExists {
+					inputAudio["data"] = r.truncateBase64Data(data)
+				}
+			}
+		}
+	}
+
+	// Marshal back to JSON
+	modifiedBody, err := json.Marshal(requestData)
+	if err != nil {
+		// If marshaling fails, return original body
+		return requestBody
+	}
+
+	return modifiedBody
+}
+
+// truncateBase64Data truncates base64 data strings to a manageable length
+func (r *OpenAIRecorder) truncateBase64Data(data string) string {
+	if len(data) <= maxMediaDataLength {
+		return data
+	}
+
+	// Check if it looks like base64 data (data URL or raw base64)
+	if strings.HasPrefix(data, "data:") {
+		// Handle data URLs like "data:image/jpeg;base64,..."
+		parts := strings.SplitN(data, ",", 2)
+		if len(parts) == 2 && len(parts[1]) > maxMediaDataLength {
+			return parts[0] + "," + parts[1][:maxMediaDataLength] + "...[truncated " + fmt.Sprintf("%d", len(parts[1])-maxMediaDataLength) + " chars]"
+		}
+	} else if len(data) > maxMediaDataLength {
+		// Handle raw base64 data
+		return data[:maxMediaDataLength] + "...[truncated " + fmt.Sprintf("%d", len(data)-maxMediaDataLength) + " chars]"
+	}
+
+	return data
+}
+
 func (r *OpenAIRecorder) SetConfigForModel(model string, config *inference.BackendConfiguration) {
 	if config == nil {
 		r.log.Warnf("SetConfigForModel called with nil config for model %s", model)
@@ -147,7 +234,7 @@ func (r *OpenAIRecorder) RecordRequest(model string, req *http.Request, body []b
 		Model:     model,
 		Method:    req.Method,
 		URL:       req.URL.Path,
-		Request:   string(body),
+		Request:   string(r.truncateMediaFields(body)),
 		Timestamp: time.Now().Unix(),
 		UserAgent: req.UserAgent(),
 	}
