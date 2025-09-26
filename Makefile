@@ -16,7 +16,7 @@ DOCKER_BUILD_ARGS := \
 	-t $(DOCKER_IMAGE)
 
 # Main targets
-.PHONY: build run clean test docker-build docker-build-multiplatform docker-run help validate
+.PHONY: build run clean test docker-build docker-build-multiplatform docker-run help validate model-distribution-tool
 
 # Default target
 .DEFAULT_GOAL := help
@@ -24,6 +24,10 @@ DOCKER_BUILD_ARGS := \
 # Build the Go application
 build:
 	CGO_ENABLED=1 go build -ldflags="-s -w" -o $(APP_NAME) ./main.go
+
+# Build model-distribution-tool
+model-distribution-tool:
+	CGO_ENABLED=1 go build -ldflags="-s -w" -o model-distribution-tool ./cmd/mdltool
 
 # Run the application locally
 run: build
@@ -33,6 +37,7 @@ run: build
 # Clean build artifacts
 clean:
 	rm -f $(APP_NAME)
+	rm -f model-distribution-tool
 	rm -f model-runner.sock
 	rm -rf $(MODELS_PATH)
 
@@ -75,6 +80,7 @@ docker-run: docker-build
 help:
 	@echo "Available targets:"
 	@echo "  build				- Build the Go application"
+	@echo "  model-distribution-tool			- Build the model distribution tool"
 	@echo "  run				- Run the application locally"
 	@echo "  clean				- Clean build artifacts"
 	@echo "  test				- Run tests"
