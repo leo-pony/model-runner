@@ -15,6 +15,127 @@ with [Model Distribution](./pkg/distribution) and the
 mimics its integration with Docker Desktop and allows the package to be run in a
 standalone mode.
 
+## Contributing - Building from Source
+
+This guide is for external contributors who want to build and test the complete Docker Model Runner ecosystem from source.
+
+### Architecture Overview
+
+The Docker Model Runner ecosystem consists of three main components:
+
+- **[model-runner](https://github.com/docker/model-runner)** (this repository) - The backend daemon/server that manages and runs AI models
+- **[model-cli](https://github.com/docker/model-cli)** - The CLI client that communicates with model-runner
+- **[model-spec](https://github.com/docker/model-spec)** - The specification for packaging models as OCI artifacts
+
+### Prerequisites
+
+Before building from source, ensure you have the following installed:
+
+- **Go 1.24+** - Required for building both model-runner and model-cli
+- **Git** - For cloning repositories
+- **Make** - For using the provided Makefiles
+- **Docker** (optional) - For building and running containerized versions
+- **CGO dependencies** - Required for model-runner's GPU support:
+  - On macOS: Xcode Command Line Tools (`xcode-select --install`)
+  - On Linux: gcc/g++ and development headers
+  - On Windows: MinGW-w64 or Visual Studio Build Tools
+
+### Building the Complete Stack
+
+#### Step 1: Clone and Build model-runner (Server/Daemon)
+
+```bash
+# Clone the model-runner repository
+git clone https://github.com/docker/model-runner.git
+cd model-runner
+
+# Build the model-runner binary
+make build
+
+# Or build with specific backend arguments
+make run LLAMA_ARGS="--verbose --jinja -ngl 999 --ctx-size 2048"
+
+# Run tests to verify the build
+make test
+```
+
+The `model-runner` binary will be created in the current directory. This is the backend server that manages models.
+
+#### Step 2: Clone and Build model-cli (Client)
+
+```bash
+# In a new terminal/directory
+git clone https://github.com/docker/model-cli.git
+cd model-cli
+
+# Build the CLI binary
+make build
+
+# The binary will be named 'model-cli'
+# Optionally, install it as a Docker CLI plugin
+make install  # This will link it to ~/.docker/cli-plugins/docker-model
+```
+
+### Testing the Complete Stack End-to-End
+
+> **Note:** We use port 13434 in these examples to avoid conflicts with Docker Desktop's built-in Model Runner, which typically runs on port 12434.
+
+#### Option 1: Local Development (Recommended for Contributors)
+
+1. **Start model-runner in one terminal:**
+```bash
+cd model-runner
+MODEL_RUNNER_PORT=13434 ./model-runner
+# The server will start on port 13434
+```
+
+2. **Use model-cli in another terminal:**
+```bash
+cd model-cli
+# List available models (connecting to port 13434)
+MODEL_RUNNER_PORT=13434 ./model-cli list
+
+# Pull and run a model
+MODEL_RUNNER_PORT=13434 ./model-cli run ai/smollm2 "Hello, how are you?" 
+```
+
+#### Option 2: Using Docker
+
+1. **Build and run model-runner in Docker:**
+```bash
+cd model-runner
+make docker-build
+make docker-run PORT=13434 MODELS_PATH=/path/to/models
+```
+
+2. **Connect with model-cli:**
+```bash
+cd model-cli
+MODEL_RUNNER_PORT=13434 ./model-cli list
+```
+
+### Development Workflow
+
+When making changes to either component:
+
+1. **For model-runner changes:**
+   - Edit code in the model-runner repository
+   - Run `make build` to rebuild
+   - Run `make test` to verify changes
+   - Restart the model-runner process
+
+2. **For model-cli changes:**
+   - Edit code in the model-cli repository  
+   - Run `make build` to rebuild
+   - Test against your running model-runner instance
+
+### Additional Resources
+
+- [Model Runner Documentation](https://docs.docker.com/desktop/features/model-runner/)
+- [Model CLI README](https://github.com/docker/model-cli/blob/main/README.md)
+- [Model Specification](https://github.com/docker/model-spec/blob/main/spec.md)
+- [Community Slack Channel](https://app.slack.com/client/T0JK1PCN6/C09H9P5E57B)
+
 ## Using the Makefile
 
 This project includes a Makefile to simplify common development tasks. It requires Docker Desktop >= 4.41.0 
