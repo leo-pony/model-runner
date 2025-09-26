@@ -1,4 +1,5 @@
 .idea/
+model-distribution-tool
 model-runner
 model-runner.sock
 # Default MODELS_PATH in Makefile
