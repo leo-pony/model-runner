@@ -51,9 +51,9 @@ func main() {
 		llamacpp.ShouldUpdateServerLock.Unlock()
 	}
 
-	desiredSeverVersion, ok := os.LookupEnv("LLAMACPP_SERVER_VERSION")
+	desiredServerVersion, ok := os.LookupEnv("LLAMA_SERVER_VERSION")
 	if ok {
-		llamacpp.SetDesiredServerVersion(desiredSeverVersion)
+		llamacpp.SetDesiredServerVersion(desiredServerVersion)
 	}
 
 	llamaServerPath := os.Getenv("LLAMA_SERVER_PATH")
