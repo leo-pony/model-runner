@@ -469,7 +469,7 @@ func (l *loader) load(ctx context.Context, backendName, modelID, modelRef string
 		}
 
 		// If there's sufficient memory and a free slot, then find the slot.
-		if memory.RAM <= l.availableMemory.RAM && (memory.VRAM <= l.availableMemory.VRAM && runtime.GOOS != "windows" || runtime.GOOS == "windows" && memory.VRAM <= (l.availableMemory.VRAM + l.availableMemory.RAM)) && len(l.runners) < len(l.slots) {
+		if memory.RAM <= l.availableMemory.RAM && ((memory.VRAM <= l.availableMemory.VRAM && runtime.GOOS != "windows") || (runtime.GOOS == "windows" && memory.VRAM <= (l.availableMemory.VRAM + l.availableMemory.RAM))) && len(l.runners) < len(l.slots) {
 			for s, runner := range l.slots {
 				if runner == nil {
 					slot = s
