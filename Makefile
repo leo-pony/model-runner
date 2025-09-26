@@ -1,6 +1,5 @@
 # Project variables
 APP_NAME := model-runner
-MDL_TOOL_NAME := model-distribution-tool
 GO_VERSION := 1.23.7
 LLAMA_SERVER_VERSION := latest
 LLAMA_SERVER_VARIANT := cpu
@@ -15,6 +14,13 @@ DOCKER_BUILD_ARGS := \
 	--build-arg LLAMA_SERVER_VARIANT=$(LLAMA_SERVER_VARIANT) \
 	--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 	-t $(DOCKER_IMAGE)
+
+# Model distribution tool configuration
+MDL_TOOL_NAME := model-distribution-tool
+STORE_PATH ?= ./model-store
+SOURCE ?=
+TAG ?=
+LICENSE ?=
 
 # Main targets
 .PHONY: build run clean test docker-build docker-build-multiplatform docker-run help validate model-distribution-tool
@@ -77,6 +83,35 @@ docker-run: docker-build
 		-e DEBUG=${DEBUG} \
 		$(DOCKER_IMAGE)
 
+# Model distribution tool operations
+mdl-pull: model-distribution-tool
+	@echo "Pulling model from $(TAG)..."
+	./$(MDL_TOOL_NAME) --store-path $(STORE_PATH) pull $(TAG)
+
+mdl-package: model-distribution-tool
+	@echo "Packaging model $(SOURCE) to $(TAG)..."
+	./$(MDL_TOOL_NAME) --store-path $(STORE_PATH) package $(SOURCE) --tag $(TAG) $(if $(LICENSE),--licenses $(LICENSE))
+
+mdl-list: model-distribution-tool
+	@echo "Listing models..."
+	./$(MDL_TOOL_NAME) --store-path $(STORE_PATH) list
+
+mdl-get: model-distribution-tool
+	@echo "Getting model $(TAG)..."
+	./$(MDL_TOOL_NAME) --store-path $(STORE_PATH) get $(TAG)
+
+mdl-get-path: model-distribution-tool
+	@echo "Getting path for model $(TAG)..."
+	./$(MDL_TOOL_NAME) --store-path $(STORE_PATH) get-path $(TAG)
+
+mdl-rm: model-distribution-tool
+	@echo "Removing model $(TAG)..."
+	./$(MDL_TOOL_NAME) --store-path $(STORE_PATH) rm $(TAG)
+
+mdl-tag: model-distribution-tool
+	@echo "Tagging model $(SOURCE) as $(TAG)..."
+	./$(MDL_TOOL_NAME) --store-path $(STORE_PATH) tag $(SOURCE) $(TAG)
+
 # Show help
 help:
 	@echo "Available targets:"
@@ -90,9 +125,24 @@ help:
 	@echo "  docker-run			- Run in Docker container with TCP port access and mounted model storage"
 	@echo "  help				- Show this help message"
 	@echo ""
+	@echo "Model distribution tool targets:"
+	@echo "  mdl-pull			- Pull a model (TAG=registry/model:tag)"
+	@echo "  mdl-package			- Package and push a model (SOURCE=path/to/model.gguf TAG=registry/model:tag LICENSE=path/to/license.txt)"
+	@echo "  mdl-list			- List all models"
+	@echo "  mdl-get			- Get model info (TAG=registry/model:tag)"
+	@echo "  mdl-get-path			- Get model path (TAG=registry/model:tag)"
+	@echo "  mdl-rm			- Remove a model (TAG=registry/model:tag)"
+	@echo "  mdl-tag			- Tag a model (SOURCE=registry/model:tag TAG=registry/model:newtag)"
+	@echo ""
 	@echo "Backend configuration options:"
 	@echo "  LLAMA_ARGS    - Arguments for llama.cpp (e.g., \"--verbose --jinja -ngl 999 --ctx-size 2048\")"
 	@echo ""
 	@echo "Example usage:"
 	@echo "  make run LLAMA_ARGS=\"--verbose --jinja -ngl 999 --ctx-size 2048\""
 	@echo "  make docker-run LLAMA_ARGS=\"--verbose --jinja -ngl 999 --threads 4 --ctx-size 2048\""
+	@echo ""
+	@echo "Model distribution tool examples:"
+	@echo "  make mdl-pull TAG=registry.example.com/models/llama:v1.0"
+	@echo "  make mdl-package SOURCE=./model.gguf TAG=registry.example.com/models/llama:v1.0 LICENSE=./license.txt"
+	@echo "  make mdl-list"
+	@echo "  make mdl-rm TAG=registry.example.com/models/llama:v1.0"
