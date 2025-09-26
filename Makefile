@@ -1,5 +1,6 @@
 # Project variables
 APP_NAME := model-runner
+MDL_TOOL_NAME := model-distribution-tool
 GO_VERSION := 1.23.7
 LLAMA_SERVER_VERSION := latest
 LLAMA_SERVER_VARIANT := cpu
@@ -27,7 +28,7 @@ build:
 
 # Build model-distribution-tool
 model-distribution-tool:
-	CGO_ENABLED=1 go build -ldflags="-s -w" -o model-distribution-tool ./cmd/mdltool
+	CGO_ENABLED=1 go build -ldflags="-s -w" -o $(MDL_TOOL_NAME) ./cmd/mdltool
 
 # Run the application locally
 run: build
@@ -37,7 +38,7 @@ run: build
 # Clean build artifacts
 clean:
 	rm -f $(APP_NAME)
-	rm -f model-distribution-tool
+	rm -f $(MDL_TOOL_NAME)
 	rm -f model-runner.sock
 	rm -rf $(MODELS_PATH)
 
