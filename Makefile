@@ -80,7 +80,7 @@ docker-run: docker-build
 help:
 	@echo "Available targets:"
 	@echo "  build				- Build the Go application"
-	@echo "  model-distribution-tool			- Build the model distribution tool"
+	@echo "  model-distribution-tool	- Build the model distribution tool"
 	@echo "  run				- Run the application locally"
 	@echo "  clean				- Clean build artifacts"
 	@echo "  test				- Run tests"
