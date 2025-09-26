@@ -190,11 +190,13 @@ func (r *OpenAIRecorder) truncateBase64Data(data string) string {
 		// Handle data URLs like "data:image/jpeg;base64,..."
 		parts := strings.SplitN(data, ",", 2)
 		if len(parts) == 2 && len(parts[1]) > maxMediaDataLength {
-			return parts[0] + "," + parts[1][:maxMediaDataLength] + "...[truncated " + fmt.Sprintf("%d", len(parts[1])-maxMediaDataLength) + " chars]"
+			truncatedChars := len(parts[1]) - maxMediaDataLength
+			return fmt.Sprintf("%s,%s...[truncated %d chars]", parts[0], parts[1][:maxMediaDataLength], truncatedChars)
 		}
-	} else if len(data) > maxMediaDataLength {
+	} else {
 		// Handle raw base64 data
-		return data[:maxMediaDataLength] + "...[truncated " + fmt.Sprintf("%d", len(data)-maxMediaDataLength) + " chars]"
+		truncatedChars := len(data) - maxMediaDataLength
+		return fmt.Sprintf("%s...[truncated %d chars]", data[:maxMediaDataLength], truncatedChars)
 	}
 
 	return data
