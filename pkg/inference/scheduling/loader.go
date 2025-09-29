@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"reflect"
 	"runtime"
 	"time"
-	"math"
 
 	"github.com/docker/model-runner/pkg/environment"
 	"github.com/docker/model-runner/pkg/inference"
@@ -420,14 +420,14 @@ func (l *loader) load(ctx context.Context, backendName, modelID, modelRef string
 	}
 	// Validate if model coul fit
 	//windows (on windows llamacpp use gpu share memory if it run out of gpu vram)
-	if runtime.GOOS == "windows" && ( memory.RAM > l.totalMemory.RAM || memory.VRAM > (l.totalMemory.VRAM + (l.totalMemory.RAM/2))) {
+	if runtime.GOOS == "windows" && (memory.RAM > l.totalMemory.RAM || memory.VRAM > (l.totalMemory.VRAM+(l.totalMemory.RAM/2))) {
 		return nil, errModelTooBig
 	}
 	// not windows
-	if runtime.GOOS != "windows" && ( memory.RAM > l.totalMemory.RAM || memory.VRAM > l.totalMemory.VRAM ) {
+	if runtime.GOOS != "windows" && (memory.RAM > l.totalMemory.RAM || memory.VRAM > l.totalMemory.VRAM) {
 		return nil, errModelTooBig
 	}
-	
+
 	// Acquire the loader lock and defer its release.
 	if !l.lock(ctx) {
 		return nil, context.Canceled
@@ -472,17 +472,16 @@ func (l *loader) load(ctx context.Context, backendName, modelID, modelRef string
 		// If there's not sufficient memory or all slots are full, then try
 		// evicting unused runners.
 		// windows
-		if runtime.GOOS == "windows" && ( memory.RAM > l.availableMemory.RAM || memory.VRAM > (l.availableMemory.VRAM + math.Min(l.availableMemory.RAM,l.totalMemory.RAM/2)) || len(l.runners) == len(l.slots)) {
+		if runtime.GOOS == "windows" && (memory.RAM > l.availableMemory.RAM || memory.VRAM > (l.availableMemory.VRAM+math.Min(l.availableMemory.RAM, l.totalMemory.RAM/2)) || len(l.runners) == len(l.slots)) {
 			l.evict(false)
 		}
 		// not windows
-		if runtime.GOOS != "windows" && ( memory.RAM > l.availableMemory.RAM ||  memory.VRAM > l.availableMemory.VRAM || len(l.runners) == len(l.slots)) {
+		if runtime.GOOS != "windows" && (memory.RAM > l.availableMemory.RAM || memory.VRAM > l.availableMemory.VRAM || len(l.runners) == len(l.slots)) {
 			l.evict(false)
 		}
-		
-		
+
 		// If there's sufficient memory and a free slot, then find the slot.
-		if memory.RAM <= l.availableMemory.RAM && ((runtime.GOOS != "windows" && memory.VRAM <= l.availableMemory.VRAM) || (runtime.GOOS == "windows" && memory.VRAM <= (l.availableMemory.VRAM + math.Min(l.availableMemory.RAM,l.totalMemory.RAM/2)))) && len(l.runners) < len(l.slots) {
+		if memory.RAM <= l.availableMemory.RAM && ((runtime.GOOS != "windows" && memory.VRAM <= l.availableMemory.VRAM) || (runtime.GOOS == "windows" && memory.VRAM <= (l.availableMemory.VRAM+math.Min(l.availableMemory.RAM, l.totalMemory.RAM/2)))) && len(l.runners) < len(l.slots) {
 			for s, runner := range l.slots {
 				if runner == nil {
 					slot = s
