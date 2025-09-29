@@ -75,7 +75,7 @@ func TestGetArgs(t *testing.T) {
 	// Build base expected args based on architecture
 	baseArgs := []string{"--jinja", "-ngl", "999", "--metrics"}
 	if runtime.GOARCH == "arm64" {
-		nThreads := min(2, runtime.NumCPU()/2)
+		nThreads := max(1, min(2, runtime.NumCPU()/2))
 		baseArgs = append(baseArgs, "--threads", strconv.Itoa(nThreads))
 	}
 
