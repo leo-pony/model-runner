@@ -2,6 +2,7 @@ package llamacpp
 
 import (
 	"runtime"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -72,6 +73,13 @@ func TestGetArgs(t *testing.T) {
 	modelPath := "/path/to/model"
 	socket := "unix:///tmp/socket"
 
+	// Build base expected args based on architecture
+	baseArgs := []string{"--jinja", "-ngl", "999", "--metrics"}
+	if runtime.GOARCH == "arm64" {
+		nThreads := max(2, runtime.NumCPU()/2)
+		baseArgs = append(baseArgs, "--threads", strconv.Itoa(nThreads))
+	}
+
 	tests := []struct {
 		name     string
 		bundle   types.ModelBundle
@@ -85,14 +93,11 @@ func TestGetArgs(t *testing.T) {
 			bundle: &fakeBundle{
 				ggufPath: modelPath,
 			},
-			expected: []string{
-				"--jinja",
-				"-ngl", "999",
-				"--metrics",
+			expected: append(slices.Clone(baseArgs),
 				"--model", modelPath,
 				"--host", socket,
 				"--ctx-size", "4096",
-			},
+			),
 		},
 		{
 			name: "embedding mode",
@@ -100,15 +105,12 @@ func TestGetArgs(t *testing.T) {
 			bundle: &fakeBundle{
 				ggufPath: modelPath,
 			},
-			expected: []string{
-				"--jinja",
-				"-ngl", "999",
-				"--metrics",
+			expected: append(slices.Clone(baseArgs),
 				"--model", modelPath,
 				"--host", socket,
 				"--embeddings",
 				"--ctx-size", "4096",
-			},
+			),
 		},
 		{
 			name: "context size from backend config",
@@ -119,15 +121,12 @@ func TestGetArgs(t *testing.T) {
 			config: &inference.BackendConfiguration{
 				ContextSize: 1234,
 			},
-			expected: []string{
-				"--jinja",
-				"-ngl", "999",
-				"--metrics",
+			expected: append(slices.Clone(baseArgs),
 				"--model", modelPath,
 				"--host", socket,
 				"--embeddings",
 				"--ctx-size", "1234", // should add this flag
-			},
+			),
 		},
 		{
 			name: "context size from model config",
@@ -141,15 +140,12 @@ func TestGetArgs(t *testing.T) {
 			config: &inference.BackendConfiguration{
 				ContextSize: 1234,
 			},
-			expected: []string{
-				"--jinja",
-				"-ngl", "999",
-				"--metrics",
+			expected: append(slices.Clone(baseArgs),
 				"--model", modelPath,
 				"--host", socket,
 				"--embeddings",
 				"--ctx-size", "2096", // model config takes precedence
-			},
+			),
 		},
 		{
 			name: "chat template from model artifact",
@@ -158,15 +154,12 @@ func TestGetArgs(t *testing.T) {
 				ggufPath:     modelPath,
 				templatePath: "/path/to/bundle/template.jinja",
 			},
-			expected: []string{
-				"--jinja",
-				"-ngl", "999",
-				"--metrics",
+			expected: append(slices.Clone(baseArgs),
 				"--model", modelPath,
 				"--host", socket,
 				"--chat-template-file", "/path/to/bundle/template.jinja",
 				"--ctx-size", "4096",
-			},
+			),
 		},
 		{
 			name: "raw flags from backend config",
@@ -177,16 +170,13 @@ func TestGetArgs(t *testing.T) {
 			config: &inference.BackendConfiguration{
 				RuntimeFlags: []string{"--some", "flag"},
 			},
-			expected: []string{
-				"--jinja",
-				"-ngl", "999",
-				"--metrics",
+			expected: append(slices.Clone(baseArgs),
 				"--model", modelPath,
 				"--host", socket,
 				"--embeddings",
 				"--ctx-size", "4096",
 				"--some", "flag", // model config takes precedence
-			},
+			),
 		},
 	}
 

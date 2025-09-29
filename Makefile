@@ -70,18 +70,14 @@ docker-run: docker-build
 	@echo "Service will be available at: http://localhost:$(PORT)"
 	@echo "Example usage: curl http://localhost:$(PORT)/models"
 	@echo ""
-	mkdir -p $(MODELS_PATH)
-	docker run --rm \
-		-p $(PORT):$(PORT) \
-		-v "$(MODELS_PATH):/models" \
-		-e MODEL_RUNNER_PORT=$(PORT) \
-		-e LLAMA_SERVER_PATH=/app/bin \
-		-e MODELS_PATH=/models \
-		-e LLAMA_ARGS="$(LLAMA_ARGS)" \
-		-e DMR_ORIGINS="$(DMR_ORIGINS)" \
-		-e DO_NOT_TRACK=${DO_NOT_TRACK} \
-		-e DEBUG=${DEBUG} \
-		$(DOCKER_IMAGE)
+	PORT="$(PORT)" \
+	MODELS_PATH="$(MODELS_PATH)" \
+	DOCKER_IMAGE="$(DOCKER_IMAGE)" \
+	LLAMA_ARGS="$(LLAMA_ARGS)" \
+	DMR_ORIGINS="$(DMR_ORIGINS)" \
+	DO_NOT_TRACK="${DO_NOT_TRACK}" \
+	DEBUG="${DEBUG}" \
+	scripts/docker-run.sh
 
 # Model distribution tool operations
 mdl-pull: model-distribution-tool
