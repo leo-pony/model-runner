@@ -25,7 +25,7 @@ func NewDefaultLlamaCppConfig() *Config {
 		// Using a thread count equal to core count results in bad performance, and there seems to be little to no gain
 		// in going beyond core_count/2.
 		if !containsArg(args, "--threads") {
-			nThreads := min(2, runtime.NumCPU()/2)
+			nThreads := max(2, runtime.NumCPU()/2)
 			args = append(args, "--threads", strconv.Itoa(nThreads))
 		}
 	}
