@@ -2,6 +2,7 @@ package llamacpp
 
 import (
 	"runtime"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -92,7 +93,7 @@ func TestGetArgs(t *testing.T) {
 			bundle: &fakeBundle{
 				ggufPath: modelPath,
 			},
-			expected: append(append([]string{}, baseArgs...),
+			expected: append(slices.Clone(baseArgs),
 				"--model", modelPath,
 				"--host", socket,
 				"--ctx-size", "4096",
@@ -104,7 +105,7 @@ func TestGetArgs(t *testing.T) {
 			bundle: &fakeBundle{
 				ggufPath: modelPath,
 			},
-			expected: append(append([]string{}, baseArgs...),
+			expected: append(slices.Clone(baseArgs),
 				"--model", modelPath,
 				"--host", socket,
 				"--embeddings",
@@ -120,7 +121,7 @@ func TestGetArgs(t *testing.T) {
 			config: &inference.BackendConfiguration{
 				ContextSize: 1234,
 			},
-			expected: append(append([]string{}, baseArgs...),
+			expected: append(slices.Clone(baseArgs),
 				"--model", modelPath,
 				"--host", socket,
 				"--embeddings",
@@ -139,7 +140,7 @@ func TestGetArgs(t *testing.T) {
 			config: &inference.BackendConfiguration{
 				ContextSize: 1234,
 			},
-			expected: append(append([]string{}, baseArgs...),
+			expected: append(slices.Clone(baseArgs),
 				"--model", modelPath,
 				"--host", socket,
 				"--embeddings",
@@ -153,7 +154,7 @@ func TestGetArgs(t *testing.T) {
 				ggufPath:     modelPath,
 				templatePath: "/path/to/bundle/template.jinja",
 			},
-			expected: append(append([]string{}, baseArgs...),
+			expected: append(slices.Clone(baseArgs),
 				"--model", modelPath,
 				"--host", socket,
 				"--chat-template-file", "/path/to/bundle/template.jinja",
@@ -169,7 +170,7 @@ func TestGetArgs(t *testing.T) {
 			config: &inference.BackendConfiguration{
 				RuntimeFlags: []string{"--some", "flag"},
 			},
-			expected: append(append([]string{}, baseArgs...),
+			expected: append(slices.Clone(baseArgs),
 				"--model", modelPath,
 				"--host", socket,
 				"--embeddings",
