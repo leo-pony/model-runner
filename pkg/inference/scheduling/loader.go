@@ -417,10 +417,16 @@ func (l *loader) load(ctx context.Context, backendName, modelID, modelRef string
 		l.log.Warnf("VRAM size unknown. Assume model will fit, but only one.")
 		memory.VRAM = 1
 	}
-	if memory.RAM > l.totalMemory.RAM || memory.VRAM > l.totalMemory.VRAM &&  runtime.GOOS != "windows" || runtime.GOOS == "windows" && memory.VRAM > (l.totalMemory.VRAM + l.totalMemory.RAM) {
+	// Validate if model coul fit
+	//windows (on windows llamacpp use gpu share memory if it run out of gpu vram)
+	if runtime.GOOS == "windows" && ( memory.RAM > l.totalMemory.RAM || memory.VRAM > (l.totalMemory.VRAM + l.totalMemory.RAM)) {
 		return nil, errModelTooBig
 	}
-
+	// not windows
+	if runtime.GOOS != "windows" && ( memory.RAM > l.totalMemory.RAM || memory.VRAM > l.totalMemory.VRAM ) {
+		return nil, errModelTooBig
+	}
+	
 	// Acquire the loader lock and defer its release.
 	if !l.lock(ctx) {
 		return nil, context.Canceled
@@ -464,10 +470,16 @@ func (l *loader) load(ctx context.Context, backendName, modelID, modelRef string
 
 		// If there's not sufficient memory or all slots are full, then try
 		// evicting unused runners.
-		if memory.RAM > l.availableMemory.RAM ||  memory.VRAM > l.availableMemory.VRAM && runtime.GOOS != "windows" || runtime.GOOS == "windows" && memory.VRAM > (l.availableMemory.VRAM + l.availableMemory.RAM) || len(l.runners) == len(l.slots) {
+		// windows
+		if runtime.GOOS == "windows" && ( memory.RAM > l.availableMemory.RAM || memory.VRAM > (l.availableMemory.VRAM + l.availableMemory.RAM) || len(l.runners) == len(l.slots)) {
 			l.evict(false)
 		}
-
+		// not windows
+		if runtime.GOOS != "windows" && ( memory.RAM > l.availableMemory.RAM ||  memory.VRAM > l.availableMemory.VRAM || len(l.runners) == len(l.slots)) {
+			l.evict(false)
+		}
+		
+		
 		// If there's sufficient memory and a free slot, then find the slot.
 		if memory.RAM <= l.availableMemory.RAM && ((memory.VRAM <= l.availableMemory.VRAM && runtime.GOOS != "windows") || (runtime.GOOS == "windows" && memory.VRAM <= (l.availableMemory.VRAM + l.availableMemory.RAM))) && len(l.runners) < len(l.slots) {
 			for s, runner := range l.slots {
