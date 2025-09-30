@@ -1,10 +1,13 @@
 package bundle
 
 import (
+	"archive/tar"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/docker/model-runner/pkg/distribution/types"
 	ggcrtypes "github.com/google/go-containerregistry/pkg/v1/types"
@@ -215,10 +218,86 @@ func unpackConfigArchive(bundle *Bundle, mdl types.Model) error {
 }
 
 func extractTarArchive(archivePath, destDir string) error {
-	// For now, we'll just link the tar file.
-	// TODO: Implement proper tar extraction using archive/tar package
-	// This would extract files like tokenizer.json, config.json, etc.
-	return os.Link(archivePath, filepath.Join(destDir, "config.tar"))
+	// Open the tar file
+	file, err := os.Open(archivePath)
+	if err != nil {
+		return fmt.Errorf("open tar archive: %w", err)
+	}
+	defer file.Close()
+
+	// Create tar reader
+	tr := tar.NewReader(file)
+
+	// Extract files
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break // End of archive
+		}
+		if err != nil {
+			return fmt.Errorf("read tar header: %w", err)
+		}
+
+		// Clean and validate the path to prevent directory traversal
+		target := filepath.Join(destDir, header.Name)
+		if !strings.HasPrefix(filepath.Clean(target), filepath.Clean(destDir)+string(os.PathSeparator)) {
+			return fmt.Errorf("invalid tar entry: %s attempts to escape destination directory", header.Name)
+		}
+
+		// Process based on header type
+		switch header.Typeflag {
+		case tar.TypeDir:
+			// Create directory
+			if err := os.MkdirAll(target, os.FileMode(header.Mode)); err != nil {
+				return fmt.Errorf("create directory %s: %w", target, err)
+			}
+
+		case tar.TypeReg:
+			// Extract regular file
+			if err := extractFile(tr, target, os.FileMode(header.Mode)); err != nil {
+				return fmt.Errorf("extract file %s: %w", target, err)
+			}
+
+		case tar.TypeSymlink:
+			// Handle symlinks safely
+			linkTarget := filepath.Join(filepath.Dir(target), header.Linkname)
+			if !strings.HasPrefix(filepath.Clean(linkTarget), filepath.Clean(destDir)+string(os.PathSeparator)) {
+				// Skip symlinks that would escape the destination directory
+				continue
+			}
+			if err := os.Symlink(header.Linkname, target); err != nil {
+				return fmt.Errorf("create symlink %s: %w", target, err)
+			}
+
+		default:
+			// Skip other types (block devices, char devices, FIFOs, etc.)
+			continue
+		}
+	}
+
+	return nil
+}
+
+// extractFile extracts a single file from the tar reader
+func extractFile(tr io.Reader, target string, mode os.FileMode) error {
+	// Ensure parent directory exists
+	if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+		return fmt.Errorf("create parent directory: %w", err)
+	}
+
+	// Create the file
+	file, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
+	if err != nil {
+		return fmt.Errorf("create file: %w", err)
+	}
+	defer file.Close()
+
+	// Copy contents
+	if _, err := io.Copy(file, tr); err != nil {
+		return fmt.Errorf("write file contents: %w", err)
+	}
+
+	return nil
 }
 
 func unpackFile(bundlePath string, srcPath string) error {
