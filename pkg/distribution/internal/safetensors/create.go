@@ -15,6 +15,11 @@ import (
 	"github.com/docker/model-runner/pkg/distribution/types"
 )
 
+var (
+	// shardPattern matches safetensors shard filenames like "model-00001-of-00003.safetensors"
+	shardPattern = regexp.MustCompile(`^(.+)-(\d{5})-of-(\d{5})\.safetensors$`)
+)
+
 // NewModel creates a new safetensors model from one or more safetensors files
 // If a sharded model pattern is detected (e.g., model-00001-of-00002.safetensors),
 // it will auto-discover all related shards
@@ -92,11 +97,8 @@ func NewModelWithConfigArchive(safetensorsPaths []string, configArchivePath stri
 // It looks for the pattern: <name>-XXXXX-of-YYYYY.safetensors
 // Returns an empty slice if no shards are found or if it's a single file
 func discoverSafetensorsShards(path string) []string {
-	// Pattern: model-00001-of-00003.safetensors
-	pattern := regexp.MustCompile(`^(.+)-(\d{5})-of-(\d{5})\.safetensors$`)
-
 	baseName := filepath.Base(path)
-	matches := pattern.FindStringSubmatch(baseName)
+	matches := shardPattern.FindStringSubmatch(baseName)
 
 	if len(matches) != 4 {
 		// Not a sharded file, return empty to indicate single file
