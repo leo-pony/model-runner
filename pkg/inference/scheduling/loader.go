@@ -418,13 +418,14 @@ func (l *loader) load(ctx context.Context, backendName, modelID, modelRef string
 		l.log.Warnf("VRAM size unknown. Assume model will fit, but only one.")
 		memory.VRAM = 1
 	}
-	// Validate if model could fit
-	//windows (on windows llamacpp use gpu shared memory (half of system memory) if it run out of gpu vram)
-	if runtime.GOOS == "windows" && (memory.RAM > l.totalMemory.RAM || memory.VRAM > (l.totalMemory.VRAM+(l.totalMemory.RAM/2))) {
-		return nil, errModelTooBig
+	// Validate if model could fit.
+	// On Windows, llamacpp can use up to half of system RAM as shared GPU memory
+	// if it runs out of dedicated VRAM.
+	totalVRAM := l.totalMemory.VRAM
+	if runtime.GOOS == "windows" {
+		totalVRAM += l.totalMemory.RAM / 2
 	}
-	// not windows
-	if runtime.GOOS != "windows" && (memory.RAM > l.totalMemory.RAM || memory.VRAM > l.totalMemory.VRAM) {
+	if memory.RAM > l.totalMemory.RAM || memory.VRAM > totalVRAM {
 		return nil, errModelTooBig
 	}
 
