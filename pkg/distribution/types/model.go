@@ -7,6 +7,8 @@ import (
 type Model interface {
 	ID() (string, error)
 	GGUFPaths() ([]string, error)
+	SafetensorsPaths() ([]string, error)
+	ConfigArchivePath() (string, error)
 	MMPROJPath() (string, error)
 	Config() (Config, error)
 	Tags() []string
@@ -24,6 +26,8 @@ type ModelArtifact interface {
 type ModelBundle interface {
 	RootDir() string
 	GGUFPath() string
+	SafetensorsPath() string
+	ConfigDir() string
 	ChatTemplatePath() string
 	MMPROJPath() string
 	RuntimeConfig() Config

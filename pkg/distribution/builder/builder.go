@@ -8,6 +8,7 @@ import (
 	"github.com/docker/model-runner/pkg/distribution/internal/gguf"
 	"github.com/docker/model-runner/pkg/distribution/internal/mutate"
 	"github.com/docker/model-runner/pkg/distribution/internal/partial"
+	"github.com/docker/model-runner/pkg/distribution/internal/safetensors"
 	"github.com/docker/model-runner/pkg/distribution/types"
 )
 
@@ -19,6 +20,28 @@ type Builder struct {
 // FromGGUF returns a *Builder that builds a model artifacts from a GGUF file
 func FromGGUF(path string) (*Builder, error) {
 	mdl, err := gguf.NewModel(path)
+	if err != nil {
+		return nil, err
+	}
+	return &Builder{
+		model: mdl,
+	}, nil
+}
+
+// FromSafetensors returns a *Builder that builds model artifacts from safetensors files
+func FromSafetensors(paths []string) (*Builder, error) {
+	mdl, err := safetensors.NewModel(paths)
+	if err != nil {
+		return nil, err
+	}
+	return &Builder{
+		model: mdl,
+	}, nil
+}
+
+// FromSafetensorsWithConfig returns a *Builder that builds model artifacts from safetensors files with a config archive
+func FromSafetensorsWithConfig(safetensorsPaths []string, configArchivePath string) (*Builder, error) {
+	mdl, err := safetensors.NewModelWithConfigArchive(safetensorsPaths, configArchivePath)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +86,17 @@ func (b *Builder) WithChatTemplateFile(path string) (*Builder, error) {
 	}
 	return &Builder{
 		model: mutate.AppendLayers(b.model, templateLayer),
+	}, nil
+}
+
+// WithConfigArchive adds a config archive (tar) file to the artifact
+func (b *Builder) WithConfigArchive(path string) (*Builder, error) {
+	configLayer, err := partial.NewLayer(path, types.MediaTypeVLLMConfigArchive)
+	if err != nil {
+		return nil, fmt.Errorf("config archive layer from %q: %w", path, err)
+	}
+	return &Builder{
+		model: mutate.AppendLayers(b.model, configLayer),
 	}, nil
 }
 

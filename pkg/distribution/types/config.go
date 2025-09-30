@@ -17,6 +17,12 @@ const (
 	// MediaTypeGGUF indicates a file in GGUF version 3 format, containing a tensor model.
 	MediaTypeGGUF = types.MediaType("application/vnd.docker.ai.gguf.v3")
 
+	// MediaTypeSafetensors indicates a file in safetensors format, containing model weights.
+	MediaTypeSafetensors = types.MediaType("application/vnd.docker.ai.safetensors")
+
+	// MediaTypeVLLMConfigArchive indicates a tar archive containing vLLM-specific config files.
+	MediaTypeVLLMConfigArchive = types.MediaType("application/vnd.docker.ai.vllm.config.tar")
+
 	// MediaTypeLicense indicates a plain text file containing a license
 	MediaTypeLicense = types.MediaType("application/vnd.docker.ai.license")
 
@@ -26,7 +32,8 @@ const (
 	// MediaTypeChatTemplate indicates a Jinja chat template
 	MediaTypeChatTemplate = types.MediaType("application/vnd.docker.ai.chat.template.jinja")
 
-	FormatGGUF = Format("gguf")
+	FormatGGUF        = Format("gguf")
+	FormatSafetensors = Format("safetensors")
 )
 
 type Format string
@@ -45,6 +52,7 @@ type Config struct {
 	Architecture string            `json:"architecture,omitempty"`
 	Size         string            `json:"size,omitempty"`
 	GGUF         map[string]string `json:"gguf,omitempty"`
+	Safetensors  map[string]string `json:"safetensors,omitempty"`
 	ContextSize  *uint64           `json:"context_size,omitempty"`
 }
 
