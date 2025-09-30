@@ -140,5 +140,6 @@ help:
 	@echo "Model distribution tool examples:"
 	@echo "  make mdl-pull TAG=registry.example.com/models/llama:v1.0"
 	@echo "  make mdl-package SOURCE=./model.gguf TAG=registry.example.com/models/llama:v1.0 LICENSE=./license.txt"
+	@echo "  make mdl-package SOURCE=./qwen2.5-3b-instruct TAG=registry.example.com/models/qwen:v1.0"
 	@echo "  make mdl-list"
 	@echo "  make mdl-rm TAG=registry.example.com/models/llama:v1.0"

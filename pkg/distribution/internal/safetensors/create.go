@@ -2,7 +2,10 @@ package safetensors
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,15 +16,24 @@ import (
 )
 
 // NewModel creates a new safetensors model from one or more safetensors files
+// If a sharded model pattern is detected (e.g., model-00001-of-00002.safetensors),
+// it will auto-discover all related shards
 func NewModel(paths []string) (*Model, error) {
 	if len(paths) == 0 {
 		return nil, fmt.Errorf("at least one safetensors file is required")
 	}
 
-	layers := make([]v1.Layer, len(paths))
-	diffIDs := make([]v1.Hash, len(paths))
+	// Auto-discover shards if the first path matches the shard pattern
+	allPaths := discoverSafetensorsShards(paths[0])
+	if len(allPaths) == 0 {
+		// No shards found, use provided paths as-is
+		allPaths = paths
+	}
 
-	for i, path := range paths {
+	layers := make([]v1.Layer, len(allPaths))
+	diffIDs := make([]v1.Hash, len(allPaths))
+
+	for i, path := range allPaths {
 		layer, err := partial.NewLayer(path, types.MediaTypeSafetensors)
 		if err != nil {
 			return nil, fmt.Errorf("create safetensors layer from %q: %w", path, err)
@@ -74,6 +86,50 @@ func NewModelWithConfigArchive(safetensorsPaths []string, configArchivePath stri
 	}
 
 	return model, nil
+}
+
+// discoverSafetensorsShards attempts to auto-discover all shards for a given safetensors file
+// It looks for the pattern: <name>-XXXXX-of-YYYYY.safetensors
+// Returns an empty slice if no shards are found or if it's a single file
+func discoverSafetensorsShards(path string) []string {
+	// Pattern: model-00001-of-00003.safetensors
+	pattern := regexp.MustCompile(`^(.+)-(\d{5})-of-(\d{5})\.safetensors$`)
+
+	baseName := filepath.Base(path)
+	matches := pattern.FindStringSubmatch(baseName)
+
+	if len(matches) != 4 {
+		// Not a sharded file, return empty to indicate single file
+		return nil
+	}
+
+	prefix := matches[1]
+	totalShards, err := strconv.Atoi(matches[3])
+	if err != nil {
+		return nil
+	}
+
+	dir := filepath.Dir(path)
+	var shards []string
+
+	// Look for all shards in the same directory
+	for i := 1; i <= totalShards; i++ {
+		shardName := fmt.Sprintf("%s-%05d-of-%05d.safetensors", prefix, i, totalShards)
+		shardPath := filepath.Join(dir, shardName)
+
+		// Check if the file exists
+		if _, err := os.Stat(shardPath); err == nil {
+			shards = append(shards, shardPath)
+		}
+	}
+
+	// Only return if we found all expected shards
+	if len(shards) == totalShards {
+		// Shards are already in order due to sequential loop
+		return shards
+	}
+
+	return nil
 }
 
 func configFromFiles(paths []string) types.Config {

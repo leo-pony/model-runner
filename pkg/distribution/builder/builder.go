@@ -28,17 +28,6 @@ func FromGGUF(path string) (*Builder, error) {
 	}, nil
 }
 
-// FromSafetensors returns a *Builder that builds model artifacts from safetensors files
-func FromSafetensors(paths []string) (*Builder, error) {
-	mdl, err := safetensors.NewModel(paths)
-	if err != nil {
-		return nil, err
-	}
-	return &Builder{
-		model: mdl,
-	}, nil
-}
-
 // FromSafetensorsWithConfig returns a *Builder that builds model artifacts from safetensors files with a config archive
 func FromSafetensorsWithConfig(safetensorsPaths []string, configArchivePath string) (*Builder, error) {
 	mdl, err := safetensors.NewModelWithConfigArchive(safetensorsPaths, configArchivePath)

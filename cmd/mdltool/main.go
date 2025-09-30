@@ -1,9 +1,11 @@
 package main
 
 import (
+	"archive/tar"
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -178,7 +180,12 @@ func cmdPackage(args []string) int {
 	fs.StringVar(&chatTemplate, "chat-template", "", "Jinja chat template file")
 
 	fs.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: model-distribution-tool package [OPTIONS] <path-to-gguf>\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: model-distribution-tool package [OPTIONS] <path-to-model-or-directory>\n\n")
+		fmt.Fprintf(os.Stderr, "Examples:\n")
+		fmt.Fprintf(os.Stderr, "  # GGUF model:\n")
+		fmt.Fprintf(os.Stderr, "  model-distribution-tool package model.gguf --tag registry/model:tag\n\n")
+		fmt.Fprintf(os.Stderr, "  # Safetensors model:\n")
+		fmt.Fprintf(os.Stderr, "  model-distribution-tool package ./qwen-model-dir --tag registry/model:tag\n\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		fs.PrintDefaults()
 	}
@@ -189,31 +196,73 @@ func cmdPackage(args []string) int {
 	}
 	args = fs.Args()
 
+	// Get the source from positional argument
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: missing arguments\n")
+		fmt.Fprintf(os.Stderr, "Error: no model file or directory specified\n")
 		fs.Usage()
 		return 1
 	}
+
+	source := args[0]
+	var isSafetensors bool
+	var configArchive string      // For safetensors config
+	var safetensorsPaths []string // For safetensors model files
+
+	// Check if source exists
+	sourceInfo, err := os.Stat(source)
+	if os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "Error: source does not exist: %s\n", source)
+		return 1
+	}
+
+	// Handle directory-based packaging (for safetensors models)
+	if sourceInfo.IsDir() {
+		fmt.Printf("Detected directory, scanning for safetensors model...\n")
+		var err error
+		safetensorsPaths, configArchive, err = packageFromDirectory(source)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error scanning directory: %v\n", err)
+			return 1
+		}
+
+		isSafetensors = true
+		fmt.Printf("Found %d safetensors file(s)\n", len(safetensorsPaths))
+
+		// Clean up temp config archive when done
+		if configArchive != "" {
+			defer os.Remove(configArchive)
+			fmt.Printf("Created temporary config archive from directory\n")
+		}
+	} else {
+		// Handle single file (GGUF or safetensors)
+		if strings.HasSuffix(strings.ToLower(source), ".safetensors") {
+			isSafetensors = true
+			safetensorsPaths = []string{source}
+			fmt.Println("Detected safetensors model file")
+
+			// Auto-discover configs from file's directory
+			parentDir := filepath.Dir(source)
+			_, configArchive, err = packageFromDirectory(parentDir)
+			if err == nil && configArchive != "" {
+				defer os.Remove(configArchive)
+				fmt.Printf("Auto-discovered config files from %s\n", parentDir)
+			}
+		} else if strings.HasSuffix(strings.ToLower(source), ".gguf") {
+			isSafetensors = false
+			fmt.Println("Detected GGUF model file")
+		} else {
+			fmt.Fprintf(os.Stderr, "Warning: could not determine model type for: %s\n", source)
+			fmt.Fprintf(os.Stderr, "Assuming GGUF format.\n")
+		}
+	}
+
 	if file == "" && tag == "" {
 		fmt.Fprintf(os.Stderr, "Error: one of --file or --tag is required\n")
 		fs.Usage()
 		return 1
 	}
 
-	source := args[0]
 	ctx := context.Background()
-
-	// Check if source file exists
-	if _, err := os.Stat(source); os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "Error: source file does not exist: %s\n", source)
-		return 1
-	}
-
-	// Check if source file is a GGUF file
-	if !strings.HasSuffix(strings.ToLower(source), ".gguf") {
-		fmt.Fprintf(os.Stderr, "Warning: source file does not have .gguf extension: %s\n", source)
-		fmt.Fprintf(os.Stderr, "Continuing anyway, but this may cause issues.\n")
-	}
 
 	// Prepare registry client options
 	registryClientOpts := []registry.ClientOption{
@@ -230,13 +279,11 @@ func cmdPackage(args []string) int {
 	// Create registry client once with all options
 	registryClient := registry.NewClient(registryClientOpts...)
 
-	var (
-		target builder.Target
-		err    error
-	)
+	var target builder.Target
 	if file != "" {
 		target = tarball.NewFileTarget(file)
 	} else {
+		var err error
 		target, err = registryClient.NewTarget(tag)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Create packaging target: %v\n", err)
@@ -244,17 +291,32 @@ func cmdPackage(args []string) int {
 		}
 	}
 
-	// Create image with layer
-	builder, err := builder.FromGGUF(source)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating model from gguf: %v\n", err)
-		return 1
+	// Create builder based on model type
+	var b *builder.Builder
+	if isSafetensors {
+		if configArchive != "" {
+			fmt.Printf("Creating safetensors model with config archive: %s\n", configArchive)
+			b, err = builder.FromSafetensorsWithConfig(safetensorsPaths, configArchive)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error creating model from safetensors with config: %v\n", err)
+				return 1
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "Error: config archive is required for safetensors models\n")
+			return 1
+		}
+	} else {
+		b, err = builder.FromGGUF(source)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating model from gguf: %v\n", err)
+			return 1
+		}
 	}
 
 	// Add all license files as layers
 	for _, path := range licensePaths {
 		fmt.Println("Adding license file:", path)
-		builder, err = builder.WithLicense(path)
+		b, err = b.WithLicense(path)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error adding license layer for %s: %v\n", path, err)
 			return 1
@@ -263,12 +325,12 @@ func cmdPackage(args []string) int {
 
 	if contextSize > 0 {
 		fmt.Println("Setting context size:", contextSize)
-		builder = builder.WithContextSize(contextSize)
+		b = b.WithContextSize(contextSize)
 	}
 
 	if mmproj != "" {
 		fmt.Println("Adding multimodal projector file:", mmproj)
-		builder, err = builder.WithMultimodalProjector(mmproj)
+		b, err = b.WithMultimodalProjector(mmproj)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error adding multimodal projector layer for %s: %v\n", mmproj, err)
 			return 1
@@ -277,7 +339,7 @@ func cmdPackage(args []string) int {
 
 	if chatTemplate != "" {
 		fmt.Println("Adding chat template file:", chatTemplate)
-		builder, err = builder.WithChatTemplateFile(chatTemplate)
+		b, err = b.WithChatTemplateFile(chatTemplate)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error adding chat template layer for %s: %v\n", chatTemplate, err)
 			return 1
@@ -285,7 +347,7 @@ func cmdPackage(args []string) int {
 	}
 
 	// Push the image
-	if err := builder.Build(ctx, target, os.Stdout); err != nil {
+	if err := b.Build(ctx, target, os.Stdout); err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing model to registry: %v\n", err)
 		return 1
 	}
@@ -524,4 +586,127 @@ func cmdBundle(client *distribution.Client, args []string) int {
 	fmt.Fprintf(os.Stderr, "Successfully created bundle for model %s\n", args[0])
 	fmt.Fprint(os.Stdout, bundle.RootDir())
 	return 0
+}
+
+// packageFromDirectory scans a directory for safetensors files and config files,
+// creating a temporary tar archive of the config files
+func packageFromDirectory(dirPath string) (safetensorsPaths []string, tempConfigArchive string, err error) {
+	// Read directory contents (only top level, no subdirectories)
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return nil, "", fmt.Errorf("read directory: %w", err)
+	}
+
+	var configFiles []string
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue // Skip subdirectories
+		}
+
+		name := entry.Name()
+		fullPath := filepath.Join(dirPath, name)
+
+		// Collect safetensors files
+		if strings.HasSuffix(strings.ToLower(name), ".safetensors") {
+			safetensorsPaths = append(safetensorsPaths, fullPath)
+		}
+
+		// Collect config files: *.json, merges.txt
+		if strings.HasSuffix(strings.ToLower(name), ".json") ||
+			name == "merges.txt" {
+			configFiles = append(configFiles, fullPath)
+		}
+	}
+
+	if len(safetensorsPaths) == 0 {
+		return nil, "", fmt.Errorf("no safetensors files found in directory: %s", dirPath)
+	}
+
+	// Create temporary tar archive with config files if any exist
+	if len(configFiles) > 0 {
+		tempConfigArchive, err = createTempConfigArchive(configFiles)
+		if err != nil {
+			return nil, "", fmt.Errorf("create config archive: %w", err)
+		}
+	}
+
+	return safetensorsPaths, tempConfigArchive, nil
+}
+
+// createTempConfigArchive creates a temporary tar archive containing the specified config files
+func createTempConfigArchive(configFiles []string) (string, error) {
+	// Create temp file
+	tmpFile, err := os.CreateTemp("", "vllm-config-*.tar")
+	if err != nil {
+		return "", fmt.Errorf("create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+
+	// Create tar writer
+	tw := tar.NewWriter(tmpFile)
+
+	// Add each config file to tar (preserving just filename, not full path)
+	for _, filePath := range configFiles {
+		// Open the file
+		file, err := os.Open(filePath)
+		if err != nil {
+			tw.Close()
+			tmpFile.Close()
+			os.Remove(tmpPath)
+			return "", fmt.Errorf("open config file %s: %w", filePath, err)
+		}
+
+		// Get file info for tar header
+		fileInfo, err := file.Stat()
+		if err != nil {
+			file.Close()
+			tw.Close()
+			tmpFile.Close()
+			os.Remove(tmpPath)
+			return "", fmt.Errorf("stat config file %s: %w", filePath, err)
+		}
+
+		// Create tar header (use only basename, not full path)
+		header := &tar.Header{
+			Name:    filepath.Base(filePath),
+			Size:    fileInfo.Size(),
+			Mode:    int64(fileInfo.Mode()),
+			ModTime: fileInfo.ModTime(),
+		}
+
+		// Write header
+		if err := tw.WriteHeader(header); err != nil {
+			file.Close()
+			tw.Close()
+			tmpFile.Close()
+			os.Remove(tmpPath)
+			return "", fmt.Errorf("write tar header for %s: %w", filePath, err)
+		}
+
+		// Copy file contents
+		if _, err := io.Copy(tw, file); err != nil {
+			file.Close()
+			tw.Close()
+			tmpFile.Close()
+			os.Remove(tmpPath)
+			return "", fmt.Errorf("write tar content for %s: %w", filePath, err)
+		}
+
+		file.Close()
+	}
+
+	// Close tar writer and file
+	if err := tw.Close(); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpPath)
+		return "", fmt.Errorf("close tar writer: %w", err)
+	}
+
+	if err := tmpFile.Close(); err != nil {
+		os.Remove(tmpPath)
+		return "", fmt.Errorf("close temp file: %w", err)
+	}
+
+	return tmpPath, nil
 }
