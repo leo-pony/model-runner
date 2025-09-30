@@ -445,6 +445,7 @@ func (l *loader) load(ctx context.Context, backendName, modelID, modelRef string
 	// Loop until we can satisfy the request or an error occurs.
 	for {
 		slot := -1
+		availableVRAM := l.availableMemory.VRAM
 
 		// If loads are disabled, then there's nothing we can do.
 		if !l.loadsEnabled {
@@ -469,7 +470,6 @@ func (l *loader) load(ctx context.Context, backendName, modelID, modelRef string
 			}
 		}
 		
-		availableVRAM := l.availableMemory.VRAM
 		if runtime.GOOS == "windows" {
 			// On Windows, we can use up to half of the total system RAM as shared GPU memory,
 			// limited by the currently available RAM.
