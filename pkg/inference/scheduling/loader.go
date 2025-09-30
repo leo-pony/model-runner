@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"reflect"
 	"runtime"
@@ -469,20 +468,26 @@ func (l *loader) load(ctx context.Context, backendName, modelID, modelRef string
 				return l.slots[existing.slot], nil
 			}
 		}
+		
+		availableVRAM := l.availableMemory.VRAM
+		if runtime.GOOS == "windows" {
+			// On Windows, we can use up to half of the total system RAM as shared GPU memory,
+			// limited by the currently available RAM.
+			sharedRAM := l.totalMemory.RAM / 2
+			if l.availableMemory.RAM < sharedRAM {
+				sharedRAM = l.availableMemory.RAM
+			}
+			availableVRAM += sharedRAM
+		}
 
 		// If there's not sufficient memory or all slots are full, then try
 		// evicting unused runners.
-		// windows
-		if runtime.GOOS == "windows" && (memory.RAM > l.availableMemory.RAM || memory.VRAM > (l.availableMemory.VRAM+math.Min(l.availableMemory.RAM, l.totalMemory.RAM/2)) || len(l.runners) == len(l.slots)) {
-			l.evict(false)
-		}
-		// not windows
-		if runtime.GOOS != "windows" && (memory.RAM > l.availableMemory.RAM || memory.VRAM > l.availableMemory.VRAM || len(l.runners) == len(l.slots)) {
+		if memory.RAM > l.availableMemory.RAM || memory.VRAM > availableVRAM || len(l.runners) == len(l.slots) {
 			l.evict(false)
 		}
 
 		// If there's sufficient memory and a free slot, then find the slot.
-		if memory.RAM <= l.availableMemory.RAM && ((runtime.GOOS != "windows" && memory.VRAM <= l.availableMemory.VRAM) || (runtime.GOOS == "windows" && memory.VRAM <= (l.availableMemory.VRAM+math.Min(l.availableMemory.RAM, l.totalMemory.RAM/2)))) && len(l.runners) < len(l.slots) {
+		if memory.RAM <= l.availableMemory.RAM && memory.VRAM <= availableVRAM && len(l.runners) < len(l.slots) {
 			for s, runner := range l.slots {
 				if runner == nil {
 					slot = s
