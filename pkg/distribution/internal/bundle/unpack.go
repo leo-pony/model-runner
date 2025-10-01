@@ -198,7 +198,11 @@ func unpackSafetensors(bundle *Bundle, mdl types.Model) error {
 func unpackConfigArchive(bundle *Bundle, mdl types.Model) error {
 	archivePath, err := mdl.ConfigArchivePath()
 	if err != nil {
-		return nil // no config archive
+		// Only suppress "not found" error, propagate others
+		if os.IsNotExist(err) {
+			return nil // no config archive
+		}
+		return fmt.Errorf("get config archive path: %w", err)
 	}
 
 	// Create config directory
