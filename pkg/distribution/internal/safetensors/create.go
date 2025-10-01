@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -57,7 +56,7 @@ func NewModel(paths []string) (*Model, error) {
 	created := time.Now()
 	return &Model{
 		configFile: types.ConfigFile{
-			Config: configFromFiles(allPaths),
+			Config: configFromFiles(),
 			Descriptor: types.Descriptor{
 				Created: &created,
 			},
@@ -145,43 +144,8 @@ func discoverSafetensorsShards(path string) []string {
 	return nil
 }
 
-func configFromFiles(paths []string) types.Config {
-	// Extract basic metadata from file paths
-	// This is a simplified version - in production, you might want to
-	// parse safetensors headers for more detailed metadata
-
-	var totalFiles int
-	var architecture string
-
-	if len(paths) > 0 {
-		totalFiles = len(paths)
-		// Try to extract architecture from filename
-		baseName := filepath.Base(paths[0])
-		baseName = strings.ToLower(baseName)
-
-		// Common patterns in model filenames
-		if strings.Contains(baseName, "llama") {
-			architecture = "llama"
-		} else if strings.Contains(baseName, "mistral") {
-			architecture = "mistral"
-		} else if strings.Contains(baseName, "qwen") {
-			architecture = "qwen"
-		} else if strings.Contains(baseName, "gemma") {
-			architecture = "gemma"
-		}
-	}
-
-	safetensorsMetadata := map[string]string{
-		"total_files": fmt.Sprintf("%d", totalFiles),
-	}
-
-	if architecture != "" {
-		safetensorsMetadata["architecture"] = architecture
-	}
-
+func configFromFiles() types.Config {
 	return types.Config{
-		Format:       types.FormatSafetensors,
-		Architecture: architecture,
-		Safetensors:  safetensorsMetadata,
+		Format: types.FormatSafetensors,
 	}
 }
