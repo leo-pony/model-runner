@@ -234,20 +234,8 @@ func cmdPackage(args []string) int {
 			fmt.Printf("Created temporary config archive from directory\n")
 		}
 	} else {
-		// Handle single file (GGUF or safetensors)
-		if strings.HasSuffix(strings.ToLower(source), ".safetensors") {
-			isSafetensors = true
-			safetensorsPaths = []string{source}
-			fmt.Println("Detected safetensors model file")
-
-			// Auto-discover configs from file's directory
-			parentDir := filepath.Dir(source)
-			_, configArchive, err = packageFromDirectory(parentDir)
-			if err == nil && configArchive != "" {
-				defer os.Remove(configArchive)
-				fmt.Printf("Auto-discovered config files from %s\n", parentDir)
-			}
-		} else if strings.HasSuffix(strings.ToLower(source), ".gguf") {
+		// Handle single file (GGUF model)
+		if strings.HasSuffix(strings.ToLower(source), ".gguf") {
 			isSafetensors = false
 			fmt.Println("Detected GGUF model file")
 		} else {
