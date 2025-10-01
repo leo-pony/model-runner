@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/docker/model-runner/pkg/distribution/types"
 	ggcrtypes "github.com/google/go-containerregistry/pkg/v1/types"
@@ -217,6 +216,40 @@ func unpackConfigArchive(bundle *Bundle, mdl types.Model) error {
 	return nil
 }
 
+// validatePathWithinDirectory checks if targetPath is within baseDir to prevent directory traversal attacks.
+// It uses filepath.IsLocal() which is available in Go 1.20+ and provides robust security against
+// various directory traversal attempts including edge cases like empty paths, ".", "..", symbolic links, etc.
+func validatePathWithinDirectory(baseDir, targetPath string) error {
+	// Get absolute path of base directory
+	absBaseDir, err := filepath.Abs(baseDir)
+	if err != nil {
+		return fmt.Errorf("get absolute base directory path: %w", err)
+	}
+
+	// Construct the target path within base directory
+	target := filepath.Join(absBaseDir, targetPath)
+
+	// Get absolute path of target
+	absTarget, err := filepath.Abs(target)
+	if err != nil {
+		return fmt.Errorf("get absolute target path: %w", err)
+	}
+
+	// Get relative path from base to target
+	rel, err := filepath.Rel(absBaseDir, absTarget)
+	if err != nil {
+		return fmt.Errorf("compute relative path: %w", err)
+	}
+
+	// Use filepath.IsLocal() to check if the relative path is local (doesn't escape baseDir)
+	// This handles all edge cases including empty strings, ".", "..", symlinks, etc.
+	if !filepath.IsLocal(rel) {
+		return fmt.Errorf("invalid entry %q: path attempts to escape destination directory", targetPath)
+	}
+
+	return nil
+}
+
 func extractTarArchive(archivePath, destDir string) error {
 	// Open the tar file
 	file, err := os.Open(archivePath)
@@ -224,6 +257,12 @@ func extractTarArchive(archivePath, destDir string) error {
 		return fmt.Errorf("open tar archive: %w", err)
 	}
 	defer file.Close()
+
+	// Get absolute path of destination directory for security checks
+	absDestDir, err := filepath.Abs(destDir)
+	if err != nil {
+		return fmt.Errorf("get absolute destination path: %w", err)
+	}
 
 	// Create tar reader
 	tr := tar.NewReader(file)
@@ -238,35 +277,60 @@ func extractTarArchive(archivePath, destDir string) error {
 			return fmt.Errorf("read tar header: %w", err)
 		}
 
-		// Clean and validate the path to prevent directory traversal
-		target := filepath.Join(destDir, header.Name)
-		if !strings.HasPrefix(filepath.Clean(target), filepath.Clean(destDir)+string(os.PathSeparator)) {
-			return fmt.Errorf("invalid tar entry: %s attempts to escape destination directory", header.Name)
+		// Validate the target path to prevent directory traversal
+		if err := validatePathWithinDirectory(absDestDir, header.Name); err != nil {
+			return err
 		}
+
+		// Construct the validated target path
+		absTarget := filepath.Join(absDestDir, header.Name)
 
 		// Process based on header type
 		switch header.Typeflag {
 		case tar.TypeDir:
 			// Create directory
-			if err := os.MkdirAll(target, os.FileMode(header.Mode)); err != nil {
-				return fmt.Errorf("create directory %s: %w", target, err)
+			if err := os.MkdirAll(absTarget, os.FileMode(header.Mode)); err != nil {
+				return fmt.Errorf("create directory %s: %w", absTarget, err)
 			}
 
 		case tar.TypeReg:
 			// Extract regular file
-			if err := extractFile(tr, target, os.FileMode(header.Mode)); err != nil {
-				return fmt.Errorf("extract file %s: %w", target, err)
+			if err := extractFile(tr, absTarget, os.FileMode(header.Mode)); err != nil {
+				return fmt.Errorf("extract file %s: %w", absTarget, err)
 			}
 
 		case tar.TypeSymlink:
-			// Handle symlinks safely
-			linkTarget := filepath.Join(filepath.Dir(target), header.Linkname)
-			if !strings.HasPrefix(filepath.Clean(linkTarget), filepath.Clean(destDir)+string(os.PathSeparator)) {
-				// Skip symlinks that would escape the destination directory
-				continue
+			// Handle symlinks safely - validate where the symlink will actually point after resolution.
+			// Symlinks are resolved relative to their parent directory, not the base directory.
+			// We must validate the final resolved absolute path to prevent directory traversal.
+
+			// Calculate the symlink's parent directory (where it will be created)
+			symlinkParent := filepath.Dir(absTarget)
+
+			// Resolve the symlink target relative to the symlink's parent directory
+			// This gives us where the symlink will actually point when followed
+			resolvedTarget := filepath.Join(symlinkParent, header.Linkname)
+
+			// Get the absolute path of where the symlink will point
+			absResolvedTarget, err := filepath.Abs(resolvedTarget)
+			if err != nil {
+				return fmt.Errorf("resolve symlink target for %q: %w", header.Name, err)
 			}
-			if err := os.Symlink(header.Linkname, target); err != nil {
-				return fmt.Errorf("create symlink %s: %w", target, err)
+
+			// Validate that the resolved absolute path stays within the destination directory
+			rel, err := filepath.Rel(absDestDir, absResolvedTarget)
+			if err != nil {
+				return fmt.Errorf("validate symlink target for %q: %w", header.Name, err)
+			}
+
+			// Use filepath.IsLocal() to ensure the symlink target doesn't escape the base directory
+			if !filepath.IsLocal(rel) {
+				return fmt.Errorf("invalid symlink %q: target %q",
+					header.Name, header.Linkname)
+			}
+
+			if err := os.Symlink(header.Linkname, absTarget); err != nil {
+				return fmt.Errorf("create symlink %s: %w", absTarget, err)
 			}
 
 		default:

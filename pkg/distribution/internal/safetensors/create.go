@@ -17,6 +17,9 @@ import (
 
 var (
 	// shardPattern matches safetensors shard filenames like "model-00001-of-00003.safetensors"
+	// This pattern assumes 5-digit zero-padded numbering (e.g., 00001-of-00003), which is
+	// the most common format used by popular model repositories.
+	// The pattern enforces consistent padding width for both the shard number and total count.
 	shardPattern = regexp.MustCompile(`^(.+)-(\d{5})-of-(\d{5})\.safetensors$`)
 )
 
