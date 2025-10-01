@@ -417,7 +417,14 @@ func (l *loader) load(ctx context.Context, backendName, modelID, modelRef string
 		l.log.Warnf("VRAM size unknown. Assume model will fit, but only one.")
 		memory.VRAM = 1
 	}
-	if memory.RAM > l.totalMemory.RAM || memory.VRAM > l.totalMemory.VRAM {
+	// Validate if model could fit.
+	// On Windows, llamacpp can use up to half of system RAM as shared GPU memory
+	// if it runs out of dedicated VRAM.
+	totalVRAM := l.totalMemory.VRAM
+	if runtime.GOOS == "windows" {
+		totalVRAM += l.totalMemory.RAM / 2
+	}
+	if memory.RAM > l.totalMemory.RAM || memory.VRAM > totalVRAM {
 		return nil, errModelTooBig
 	}
 
@@ -438,6 +445,7 @@ func (l *loader) load(ctx context.Context, backendName, modelID, modelRef string
 	// Loop until we can satisfy the request or an error occurs.
 	for {
 		slot := -1
+		availableVRAM := l.availableMemory.VRAM
 
 		// If loads are disabled, then there's nothing we can do.
 		if !l.loadsEnabled {
@@ -461,15 +469,25 @@ func (l *loader) load(ctx context.Context, backendName, modelID, modelRef string
 				return l.slots[existing.slot], nil
 			}
 		}
+		
+		if runtime.GOOS == "windows" {
+			// On Windows, we can use up to half of the total system RAM as shared GPU memory,
+			// limited by the currently available RAM.
+			sharedRAM := l.totalMemory.RAM / 2
+			if l.availableMemory.RAM < sharedRAM {
+				sharedRAM = l.availableMemory.RAM
+			}
+			availableVRAM += sharedRAM
+		}
 
 		// If there's not sufficient memory or all slots are full, then try
 		// evicting unused runners.
-		if memory.RAM > l.availableMemory.RAM || memory.VRAM > l.availableMemory.VRAM || len(l.runners) == len(l.slots) {
+		if memory.RAM > l.availableMemory.RAM || memory.VRAM > availableVRAM || len(l.runners) == len(l.slots) {
 			l.evict(false)
 		}
 
 		// If there's sufficient memory and a free slot, then find the slot.
-		if memory.RAM <= l.availableMemory.RAM && memory.VRAM <= l.availableMemory.VRAM && len(l.runners) < len(l.slots) {
+		if memory.RAM <= l.availableMemory.RAM && memory.VRAM <= availableVRAM && len(l.runners) < len(l.slots) {
 			for s, runner := range l.slots {
 				if runner == nil {
 					slot = s
