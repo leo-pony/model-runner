@@ -79,6 +79,14 @@ func NewModelWithConfigArchive(safetensorsPaths []string, configArchivePath stri
 
 	// Add config archive layer
 	if configArchivePath != "" {
+		// Check if a config archive layer already exists
+		for _, layer := range model.layers {
+			mediaType, err := layer.MediaType()
+			if err == nil && mediaType == types.MediaTypeVLLMConfigArchive {
+				return nil, fmt.Errorf("model already has a config archive layer")
+			}
+		}
+
 		configLayer, err := partial.NewLayer(configArchivePath, types.MediaTypeVLLMConfigArchive)
 		if err != nil {
 			return nil, fmt.Errorf("create config archive layer from %q: %w", configArchivePath, err)
