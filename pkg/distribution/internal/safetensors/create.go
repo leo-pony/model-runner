@@ -57,7 +57,7 @@ func NewModel(paths []string) (*Model, error) {
 	created := time.Now()
 	return &Model{
 		configFile: types.ConfigFile{
-			Config: configFromFiles(paths),
+			Config: configFromFiles(allPaths),
 			Descriptor: types.Descriptor{
 				Created: &created,
 			},
