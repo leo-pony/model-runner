@@ -22,7 +22,7 @@ main() {
     -e DMR_ORIGINS="$DMR_ORIGINS" \
     -e DO_NOT_TRACK="$DO_NOT_TRACK" \
     -e DEBUG="$DEBUG" \
-    "${gpu_device_flag[@]}" \
+    "${gpu_device_flag[@]+"${gpu_device_flag[@]}"}" \
     "$DOCKER_IMAGE"
 }
 
