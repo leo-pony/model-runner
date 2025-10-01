@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/docker/model-runner/pkg/distribution/builder"
@@ -611,8 +612,14 @@ func packageFromDirectory(dirPath string) (safetensorsPaths []string, tempConfig
 		return nil, "", fmt.Errorf("no safetensors files found in directory: %s", dirPath)
 	}
 
+	// Sort to ensure reproducible artifacts
+	sort.Strings(safetensorsPaths)
+
 	// Create temporary tar archive with config files if any exist
 	if len(configFiles) > 0 {
+		// Sort config files for reproducible tar archive
+		sort.Strings(configFiles)
+
 		tempConfigArchive, err = createTempConfigArchive(configFiles)
 		if err != nil {
 			return nil, "", fmt.Errorf("create config archive: %w", err)
