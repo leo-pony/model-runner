@@ -31,9 +31,12 @@ func NewModel(paths []string) (*Model, error) {
 	}
 
 	// Auto-discover shards if the first path matches the shard pattern
-	allPaths := discoverSafetensorsShards(paths[0])
+	allPaths, err := discoverSafetensorsShards(paths[0])
+	if err != nil {
+		return nil, fmt.Errorf("discover safetensors shards: %w", err)
+	}
 	if len(allPaths) == 0 {
-		// No shards found, use provided paths as-is
+		// Not a sharded file, use provided paths as-is
 		allPaths = paths
 	}
 
@@ -105,20 +108,21 @@ func NewModelWithConfigArchive(safetensorsPaths []string, configArchivePath stri
 
 // discoverSafetensorsShards attempts to auto-discover all shards for a given safetensors file
 // It looks for the pattern: <name>-XXXXX-of-YYYYY.safetensors
-// Returns an empty slice if no shards are found or if it's a single file
-func discoverSafetensorsShards(path string) []string {
+// Returns (nil, nil) for single-file models, (paths, nil) for complete shard sets,
+// or (nil, error) for incomplete shard sets
+func discoverSafetensorsShards(path string) ([]string, error) {
 	baseName := filepath.Base(path)
 	matches := shardPattern.FindStringSubmatch(baseName)
 
 	if len(matches) != 4 {
-		// Not a sharded file, return empty to indicate single file
-		return nil
+		// Not a sharded file, return empty slice with no error
+		return nil, nil
 	}
 
 	prefix := matches[1]
 	totalShards, err := strconv.Atoi(matches[3])
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("parse shard count: %w", err)
 	}
 
 	dir := filepath.Dir(path)
@@ -135,13 +139,13 @@ func discoverSafetensorsShards(path string) []string {
 		}
 	}
 
-	// Only return if we found all expected shards
-	if len(shards) == totalShards {
-		// Shards are already in order due to sequential loop
-		return shards
+	// Return error if we didn't find all expected shards
+	if len(shards) != totalShards {
+		return nil, fmt.Errorf("incomplete shard set: found %d of %d shards for %s", len(shards), totalShards, baseName)
 	}
 
-	return nil
+	// Shards are already in order due to sequential loop
+	return shards, nil
 }
 
 func configFromFiles() types.Config {
