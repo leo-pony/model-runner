@@ -86,7 +86,7 @@ mdl-pull: model-distribution-tool
 
 mdl-package: model-distribution-tool
 	@echo "Packaging model $(SOURCE) to $(TAG)..."
-	./$(MDL_TOOL_NAME) --store-path $(STORE_PATH) package $(SOURCE) --tag $(TAG) $(if $(LICENSE),--licenses $(LICENSE))
+	./$(MDL_TOOL_NAME) package --tag $(TAG) $(if $(LICENSE),--licenses $(LICENSE)) $(SOURCE)
 
 mdl-list: model-distribution-tool
 	@echo "Listing models..."
