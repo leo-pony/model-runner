@@ -210,7 +210,7 @@ func unpackConfigArchive(bundle *Bundle, mdl types.Model) error {
 }
 
 // validatePathWithinDirectory checks if targetPath is within baseDir to prevent directory traversal attacks.
-// It uses filepath.IsLocal() which is available in Go 1.20+ and provides robust security against
+// It uses filepath.IsLocal() to provide robust security against
 // various directory traversal attempts including edge cases like empty paths, ".", "..", symbolic links, etc.
 func validatePathWithinDirectory(baseDir, targetPath string) error {
 	// Get absolute path of base directory
