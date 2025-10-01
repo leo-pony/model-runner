@@ -283,16 +283,21 @@ func cmdPackage(args []string) int {
 	// Create builder based on model type
 	var b *builder.Builder
 	if isSafetensors {
+		fmt.Println("Creating safetensors model")
+		b, err = builder.FromSafetensors(safetensorsPaths)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating model from safetensors: %v\n", err)
+			return 1
+		}
+
+		// Add config archive if provided
 		if configArchive != "" {
-			fmt.Printf("Creating safetensors model with config archive: %s\n", configArchive)
-			b, err = builder.FromSafetensorsWithConfig(safetensorsPaths, configArchive)
+			fmt.Printf("Adding config archive: %s\n", configArchive)
+			b, err = b.WithConfigArchive(configArchive)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error creating model from safetensors with config: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Error adding config archive: %v\n", err)
 				return 1
 			}
-		} else {
-			fmt.Fprintf(os.Stderr, "Error: config archive is required for safetensors models\n")
-			return 1
 		}
 	} else {
 		b, err = builder.FromGGUF(source)

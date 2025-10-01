@@ -28,9 +28,9 @@ func FromGGUF(path string) (*Builder, error) {
 	}, nil
 }
 
-// FromSafetensorsWithConfig returns a *Builder that builds model artifacts from safetensors files with a config archive
-func FromSafetensorsWithConfig(safetensorsPaths []string, configArchivePath string) (*Builder, error) {
-	mdl, err := safetensors.NewModelWithConfigArchive(safetensorsPaths, configArchivePath)
+// FromSafetensors returns a *Builder that builds model artifacts from safetensors files
+func FromSafetensors(safetensorsPaths []string) (*Builder, error) {
+	mdl, err := safetensors.NewModel(safetensorsPaths)
 	if err != nil {
 		return nil, err
 	}
@@ -80,6 +80,19 @@ func (b *Builder) WithChatTemplateFile(path string) (*Builder, error) {
 
 // WithConfigArchive adds a config archive (tar) file to the artifact
 func (b *Builder) WithConfigArchive(path string) (*Builder, error) {
+	// Check if config archive already exists
+	layers, err := b.model.Layers()
+	if err != nil {
+		return nil, fmt.Errorf("get model layers: %w", err)
+	}
+
+	for _, layer := range layers {
+		mediaType, err := layer.MediaType()
+		if err == nil && mediaType == types.MediaTypeVLLMConfigArchive {
+			return nil, fmt.Errorf("model already has a config archive layer")
+		}
+	}
+
 	configLayer, err := partial.NewLayer(path, types.MediaTypeVLLMConfigArchive)
 	if err != nil {
 		return nil, fmt.Errorf("config archive layer from %q: %w", path, err)
