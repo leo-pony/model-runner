@@ -283,10 +283,6 @@ func (f *fakeBundle) SafetensorsPath() string {
 	return ""
 }
 
-func (f *fakeBundle) ConfigDir() string {
-	return ""
-}
-
 func (f *fakeBundle) RuntimeConfig() types.Config {
 	return f.config
 }
