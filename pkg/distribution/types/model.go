@@ -27,7 +27,6 @@ type ModelBundle interface {
 	RootDir() string
 	GGUFPath() string
 	SafetensorsPath() string
-	ConfigDir() string
 	ChatTemplatePath() string
 	MMPROJPath() string
 	RuntimeConfig() Config

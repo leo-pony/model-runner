@@ -12,7 +12,6 @@ type Bundle struct {
 	mmprojPath       string
 	ggufFile         string // path to GGUF file (first shard when model is split among files)
 	safetensorsFile  string // path to safetensors file (first shard when model is split among files)
-	configDir        string // path to extracted config directory
 	runtimeConfig    types.Config
 	chatTemplatePath string
 }
@@ -53,14 +52,6 @@ func (b *Bundle) SafetensorsPath() string {
 		return ""
 	}
 	return filepath.Join(b.dir, b.safetensorsFile)
-}
-
-// ConfigDir returns the path to the extracted config directory or "" if none is present.
-func (b *Bundle) ConfigDir() string {
-	if b.configDir == "" {
-		return ""
-	}
-	return filepath.Join(b.dir, b.configDir)
 }
 
 // RuntimeConfig returns config that should be respected by the backend at runtime.

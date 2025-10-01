@@ -205,18 +205,11 @@ func unpackConfigArchive(bundle *Bundle, mdl types.Model) error {
 		return fmt.Errorf("get config archive path: %w", err)
 	}
 
-	// Create config directory
-	configDir := filepath.Join(bundle.dir, "configs")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		return fmt.Errorf("create config directory: %w", err)
-	}
-
 	// Extract the tar archive
-	if err := extractTarArchive(archivePath, configDir); err != nil {
+	if err := extractTarArchive(archivePath, bundle.dir); err != nil {
 		return fmt.Errorf("extract config archive: %w", err)
 	}
 
-	bundle.configDir = "configs"
 	return nil
 }
 
