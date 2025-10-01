@@ -300,38 +300,10 @@ func extractTarArchive(archivePath, destDir string) error {
 			}
 
 		case tar.TypeSymlink:
-			// Handle symlinks safely - validate where the symlink will actually point after resolution.
-			// Symlinks are resolved relative to their parent directory, not the base directory.
-			// We must validate the final resolved absolute path to prevent directory traversal.
-
-			// Calculate the symlink's parent directory (where it will be created)
-			symlinkParent := filepath.Dir(absTarget)
-
-			// Resolve the symlink target relative to the symlink's parent directory
-			// This gives us where the symlink will actually point when followed
-			resolvedTarget := filepath.Join(symlinkParent, header.Linkname)
-
-			// Get the absolute path of where the symlink will point
-			absResolvedTarget, err := filepath.Abs(resolvedTarget)
-			if err != nil {
-				return fmt.Errorf("resolve symlink target for %q: %w", header.Name, err)
-			}
-
-			// Validate that the resolved absolute path stays within the destination directory
-			rel, err := filepath.Rel(absDestDir, absResolvedTarget)
-			if err != nil {
-				return fmt.Errorf("validate symlink target for %q: %w", header.Name, err)
-			}
-
-			// Use filepath.IsLocal() to ensure the symlink target doesn't escape the base directory
-			if !filepath.IsLocal(rel) {
-				return fmt.Errorf("invalid symlink %q: target %q",
-					header.Name, header.Linkname)
-			}
-
-			if err := os.Symlink(header.Linkname, absTarget); err != nil {
-				return fmt.Errorf("create symlink %s: %w", absTarget, err)
-			}
+			// Skip symlinks - not needed for model distribution
+			// Symlinks could enable directory traversal attacks even with validation
+			// Model archives should only contain regular files and directories
+			continue
 
 		default:
 			// Skip other types (block devices, char devices, FIFOs, etc.)
