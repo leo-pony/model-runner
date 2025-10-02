@@ -25,6 +25,7 @@ group "validate" {
 
 target "validate-docs" {
   inherits = ["_common"]
+  context = "cmd/cli"
   args = {
     DOCS_FORMATS = DOCS_FORMATS
   }
@@ -34,6 +35,7 @@ target "validate-docs" {
 
 target "update-docs" {
   inherits = ["_common"]
+  context = "cmd/cli"
   args = {
     DOCS_FORMATS = DOCS_FORMATS
   }
@@ -43,6 +45,7 @@ target "update-docs" {
 
 target "validate-tests" {
   inherits = ["_common"]
+  context = "cmd/cli"
   target = "test"
   output = ["type=cacheonly"]
 }

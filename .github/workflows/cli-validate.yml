@@ -1,4 +1,4 @@
-name: validate
+name: Validate model-cli
 
 permissions:
   contents: read
@@ -15,7 +15,13 @@ on:
       - 'v[0-9]*'
     tags:
       - 'v*'
+    paths:
+      - 'cmd/cli/**'
+      - '.github/workflows/cli-validate.yml'
   pull_request:
+    paths:
+      - 'cmd/cli/**'
+      - '.github/workflows/cli-validate.yml'
 
 jobs:
   prepare:
@@ -31,6 +37,7 @@ jobs:
         id: generate
         uses: docker/bake-action/subaction/list-targets@v6
         with:
+          files: ./cmd/cli/docker-bake.hcl
           target: validate
 
   validate:
@@ -43,6 +50,9 @@ jobs:
         target: ${{ fromJson(needs.prepare.outputs.targets) }}
     steps:
       -
+        name: Checkout
+        uses: actions/checkout@v4
+      -
         name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
@@ -51,4 +61,6 @@ jobs:
         name: Validate
         uses: docker/bake-action@v6
         with:
+          files: ./cmd/cli/docker-bake.hcl
+          workdir: ./cmd/cli
           targets: ${{ matrix.target }}
