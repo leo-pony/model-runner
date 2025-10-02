@@ -279,6 +279,10 @@ func (f *fakeBundle) MMPROJPath() string {
 	return ""
 }
 
+func (f *fakeBundle) SafetensorsPath() string {
+	return ""
+}
+
 func (f *fakeBundle) RuntimeConfig() types.Config {
 	return f.config
 }

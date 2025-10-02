@@ -130,6 +130,14 @@ func (m *Model) ChatTemplatePath() (string, error) {
 	return mdpartial.ChatTemplatePath(m)
 }
 
+func (m *Model) SafetensorsPaths() ([]string, error) {
+	return mdpartial.SafetensorsPaths(m)
+}
+
+func (m *Model) ConfigArchivePath() (string, error) {
+	return mdpartial.ConfigArchivePath(m)
+}
+
 func (m *Model) Tags() []string {
 	return m.tags
 }

@@ -86,7 +86,7 @@ mdl-pull: model-distribution-tool
 
 mdl-package: model-distribution-tool
 	@echo "Packaging model $(SOURCE) to $(TAG)..."
-	./$(MDL_TOOL_NAME) --store-path $(STORE_PATH) package $(SOURCE) --tag $(TAG) $(if $(LICENSE),--licenses $(LICENSE))
+	./$(MDL_TOOL_NAME) package --tag $(TAG) $(if $(LICENSE),--licenses $(LICENSE)) $(SOURCE)
 
 mdl-list: model-distribution-tool
 	@echo "Listing models..."
@@ -140,5 +140,6 @@ help:
 	@echo "Model distribution tool examples:"
 	@echo "  make mdl-pull TAG=registry.example.com/models/llama:v1.0"
 	@echo "  make mdl-package SOURCE=./model.gguf TAG=registry.example.com/models/llama:v1.0 LICENSE=./license.txt"
+	@echo "  make mdl-package SOURCE=./qwen2.5-3b-instruct TAG=registry.example.com/models/qwen:v1.0"
 	@echo "  make mdl-list"
 	@echo "  make mdl-rm TAG=registry.example.com/models/llama:v1.0"

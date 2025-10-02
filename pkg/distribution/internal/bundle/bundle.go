@@ -11,6 +11,7 @@ type Bundle struct {
 	dir              string
 	mmprojPath       string
 	ggufFile         string // path to GGUF file (first shard when model is split among files)
+	safetensorsFile  string // path to safetensors file (first shard when model is split among files)
 	runtimeConfig    types.Config
 	chatTemplatePath string
 }
@@ -43,6 +44,14 @@ func (b *Bundle) ChatTemplatePath() string {
 		return ""
 	}
 	return filepath.Join(b.dir, b.chatTemplatePath)
+}
+
+// SafetensorsPath returns the path to model safetensors file. If the model is sharded this will be the path to the first shard.
+func (b *Bundle) SafetensorsPath() string {
+	if b.safetensorsFile == "" {
+		return ""
+	}
+	return filepath.Join(b.dir, b.safetensorsFile)
 }
 
 // RuntimeConfig returns config that should be respected by the backend at runtime.

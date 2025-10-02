@@ -8,6 +8,7 @@ import (
 	"github.com/docker/model-runner/pkg/distribution/internal/gguf"
 	"github.com/docker/model-runner/pkg/distribution/internal/mutate"
 	"github.com/docker/model-runner/pkg/distribution/internal/partial"
+	"github.com/docker/model-runner/pkg/distribution/internal/safetensors"
 	"github.com/docker/model-runner/pkg/distribution/types"
 )
 
@@ -19,6 +20,17 @@ type Builder struct {
 // FromGGUF returns a *Builder that builds a model artifacts from a GGUF file
 func FromGGUF(path string) (*Builder, error) {
 	mdl, err := gguf.NewModel(path)
+	if err != nil {
+		return nil, err
+	}
+	return &Builder{
+		model: mdl,
+	}, nil
+}
+
+// FromSafetensors returns a *Builder that builds model artifacts from safetensors files
+func FromSafetensors(safetensorsPaths []string) (*Builder, error) {
+	mdl, err := safetensors.NewModel(safetensorsPaths)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +75,30 @@ func (b *Builder) WithChatTemplateFile(path string) (*Builder, error) {
 	}
 	return &Builder{
 		model: mutate.AppendLayers(b.model, templateLayer),
+	}, nil
+}
+
+// WithConfigArchive adds a config archive (tar) file to the artifact
+func (b *Builder) WithConfigArchive(path string) (*Builder, error) {
+	// Check if config archive already exists
+	layers, err := b.model.Layers()
+	if err != nil {
+		return nil, fmt.Errorf("get model layers: %w", err)
+	}
+
+	for _, layer := range layers {
+		mediaType, err := layer.MediaType()
+		if err == nil && mediaType == types.MediaTypeVLLMConfigArchive {
+			return nil, fmt.Errorf("model already has a config archive layer")
+		}
+	}
+
+	configLayer, err := partial.NewLayer(path, types.MediaTypeVLLMConfigArchive)
+	if err != nil {
+		return nil, fmt.Errorf("config archive layer from %q: %w", path, err)
+	}
+	return &Builder{
+		model: mutate.AppendLayers(b.model, configLayer),
 	}, nil
 }
 
