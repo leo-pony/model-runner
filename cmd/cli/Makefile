@@ -73,7 +73,7 @@ clean:
 
 docs:
 	$(eval $@_TMP_OUT := $(shell mktemp -d -t model-cli-output.XXXXXXXXXX))
-	docker buildx bake --set "*.output=type=local,dest=$($@_TMP_OUT)" update-docs
+	docker buildx bake --allow=fs.read=$(shell cd ../.. && pwd) --set "*.output=type=local,dest=$($@_TMP_OUT)" update-docs
 	rm -rf ./docs/reference/*
 	cp -R "$($@_TMP_OUT)"/* ./docs/reference/
 	rm -rf "$($@_TMP_OUT)"/*

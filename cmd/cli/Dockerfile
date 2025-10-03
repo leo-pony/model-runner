@@ -7,15 +7,13 @@ ARG DOCS_FORMATS="md,yaml"
 
 FROM --platform=${BUILDPLATFORM} golang:${GO_VERSION}-alpine${ALPINE_VERSION} AS base
 RUN apk add --no-cache rsync git
-ENV GOFLAGS=-mod=vendor
 ENV CGO_ENABLED=0
 WORKDIR /src
 
 FROM base AS docs-gen
-WORKDIR /src
 RUN --mount=target=. \
     --mount=target=/root/.cache,type=cache \
-    go build -mod=vendor -o /out/docsgen ./docs/generate.go
+    go build -C cmd/cli -o /out/docsgen ./docs/generate.go
 
 FROM base AS docs-build
 COPY --from=docs-gen /out/docsgen /usr/bin
@@ -24,10 +22,10 @@ ARG DOCS_FORMATS
 RUN --mount=target=/context \
     --mount=target=.,type=tmpfs <<EOT
   set -e
-  rsync -a /context/. .
-  docsgen --formats "$DOCS_FORMATS" --source "docs/reference"
+  rsync -a --exclude='models-store' /context/. .
+  docsgen --formats "$DOCS_FORMATS" --source "cmd/cli/docs/reference"
   mkdir /out
-  cp -r docs/reference/* /out/
+  cp -r cmd/cli/docs/reference/* /out/
 EOT
 
 FROM scratch AS docs-update
@@ -37,13 +35,13 @@ FROM docs-build AS docs-validate
 RUN --mount=target=/context \
     --mount=target=.,type=tmpfs <<EOT
   set -e
-  rsync -a /context/. .
+  rsync -a --exclude='models-store' /context/. .
   git add -A
-  rm -rf docs/reference/*
-  cp -rf /out/* ./docs/reference/
+  rm -rf cmd/cli/docs/reference/*
+  cp -rf /out/* ./cmd/cli/docs/reference/
   if [ -n "$(git status --porcelain -- docs/reference)" ]; then
     echo >&2 'ERROR: Docs result differs. Please update with "make docs"'
-    git status --porcelain -- docs/reference
+    git status --porcelain -- cmd/cli/docs/reference
     exit 1
   fi
 EOT

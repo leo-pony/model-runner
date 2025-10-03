@@ -25,7 +25,7 @@ group "validate" {
 
 target "validate-docs" {
   inherits = ["_common"]
-  context = "cmd/cli"
+  dockerfile = "cmd/cli/Dockerfile"
   args = {
     DOCS_FORMATS = DOCS_FORMATS
   }
@@ -33,9 +33,11 @@ target "validate-docs" {
   output = ["type=cacheonly"]
 }
 
+// make docs
 target "update-docs" {
   inherits = ["_common"]
-  context = "cmd/cli"
+  context = "../.."
+  dockerfile = "cmd/cli/Dockerfile"
   args = {
     DOCS_FORMATS = DOCS_FORMATS
   }
