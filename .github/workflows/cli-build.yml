@@ -1,0 +1,44 @@
+name: Build model-cli
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'cmd/cli/**'
+      - '.github/workflows/cli-build.yml'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'cmd/cli/**'
+      - '.github/workflows/cli-build.yml'
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch"
+        required: true
+        default: "main"
+
+jobs:
+  build:
+    runs-on: macos-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cmd/cli/go.mod
+          cache: true
+          cache-dependency-path: cmd/cli/go.sum
+      - name: Build model-cli
+        working-directory: cmd/cli
+        run: |
+          make release VERSION=${{ github.sha }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: |
+            cmd/cli/dist/
+          retention-days: 2
+          if-no-files-found: error
