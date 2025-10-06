@@ -132,7 +132,7 @@ When making changes to either component:
 ### Additional Resources
 
 - [Model Runner Documentation](https://docs.docker.com/desktop/features/model-runner/)
-- [Model CLI README](https://github.com/docker/model-cli/blob/main/README.md)
+- [Model CLI README](https://github.com/docker/model-runner/cmd/cli/blob/main/README.md)
 - [Model Specification](https://github.com/docker/model-spec/blob/main/spec.md)
 - [Community Slack Channel](https://app.slack.com/client/T0JK1PCN6/C09H9P5E57B)
 

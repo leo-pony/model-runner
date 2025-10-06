@@ -7,10 +7,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/docker/model-cli/pkg/types"
+	"github.com/docker/model-runner/cmd/cli/pkg/types"
 	"github.com/spf13/pflag"
 
-	"github.com/docker/model-cli/desktop"
+	"github.com/docker/model-runner/cmd/cli/desktop"
 	"github.com/docker/model-runner/pkg/inference/backends/llamacpp"
 	dmrm "github.com/docker/model-runner/pkg/inference/models"
 	"github.com/docker/model-runner/pkg/inference/scheduling"

@@ -1,8 +1,8 @@
 package commands
 
 import (
-	"github.com/docker/model-cli/commands/completion"
-	"github.com/docker/model-cli/desktop"
+	"github.com/docker/model-runner/cmd/cli/commands/completion"
+	"github.com/docker/model-runner/cmd/cli/desktop"
 	"github.com/spf13/cobra"
 )
 

@@ -1,8 +1,6 @@
 module github.com/docker/model-runner
 
-go 1.24
-
-toolchain go1.24.4
+go 1.24.0
 
 require (
 	github.com/containerd/containerd/v2 v2.0.4

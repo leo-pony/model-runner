@@ -10,7 +10,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
-	gpupkg "github.com/docker/model-cli/pkg/gpu"
+	gpupkg "github.com/docker/model-runner/cmd/cli/pkg/gpu"
 )
 
 const (

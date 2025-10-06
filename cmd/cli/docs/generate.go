@@ -7,7 +7,7 @@ import (
 
 	clidocstool "github.com/docker/cli-docs-tool"
 	"github.com/docker/cli/cli/command"
-	"github.com/docker/model-cli/commands"
+	"github.com/docker/model-runner/cmd/cli/commands"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
