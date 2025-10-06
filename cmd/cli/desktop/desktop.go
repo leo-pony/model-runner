@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/docker/go-units"
-	"github.com/docker/model-distribution/distribution"
+	"github.com/docker/model-runner/pkg/distribution/distribution"
 	"github.com/docker/model-runner/pkg/inference"
 	dmrm "github.com/docker/model-runner/pkg/inference/models"
 	"github.com/docker/model-runner/pkg/inference/scheduling"

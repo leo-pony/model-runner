@@ -9,10 +9,10 @@ import (
 	"io"
 	"path/filepath"
 
-	"github.com/docker/model-distribution/builder"
-	"github.com/docker/model-distribution/registry"
-	"github.com/docker/model-distribution/tarball"
-	"github.com/docker/model-distribution/types"
+	"github.com/docker/model-runner/pkg/distribution/builder"
+	"github.com/docker/model-runner/pkg/distribution/registry"
+	"github.com/docker/model-runner/pkg/distribution/tarball"
+	"github.com/docker/model-runner/pkg/distribution/types"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/spf13/cobra"
 
