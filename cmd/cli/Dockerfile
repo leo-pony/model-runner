@@ -51,4 +51,4 @@ RUN apk add --no-cache make gcc musl-dev
 WORKDIR /src
 RUN --mount=target=. \
   --mount=target=/root/.cache,type=cache \
-  CGO_ENABLED=1 make unit-tests
+  CGO_ENABLED=1 make -C cmd/cli unit-tests

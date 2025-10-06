@@ -47,7 +47,7 @@ target "update-docs" {
 
 target "validate-tests" {
   inherits = ["_common"]
-  context = "cmd/cli"
+  dockerfile = "cmd/cli/Dockerfile"
   target = "test"
   output = ["type=cacheonly"]
 }
