@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"testing"
 
-	mockdesktop "github.com/docker/model-cli/mocks"
+	mockdesktop "github.com/docker/model-runner/cmd/cli/mocks"
 	"github.com/docker/model-runner/pkg/inference/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -4,15 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/docker/model-cli/pkg/types"
+	"github.com/docker/model-runner/cmd/cli/pkg/types"
 	"os"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/model-cli/commands/completion"
-	"github.com/docker/model-cli/desktop"
-	gpupkg "github.com/docker/model-cli/pkg/gpu"
-	"github.com/docker/model-cli/pkg/standalone"
+	"github.com/docker/model-runner/cmd/cli/commands/completion"
+	"github.com/docker/model-runner/cmd/cli/desktop"
+	gpupkg "github.com/docker/model-runner/cmd/cli/pkg/gpu"
+	"github.com/docker/model-runner/cmd/cli/pkg/standalone"
 	"github.com/spf13/cobra"
 )
 

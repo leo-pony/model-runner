@@ -6,7 +6,7 @@ import (
 	"github.com/docker/cli/cli-plugins/plugin"
 	"github.com/docker/cli/cli/command"
 	"github.com/docker/cli/cli/flags"
-	"github.com/docker/model-cli/desktop"
+	"github.com/docker/model-runner/cmd/cli/desktop"
 	"github.com/spf13/cobra"
 )
 

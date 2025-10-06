@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/docker/cli/cli-plugins/hooks"
-	"github.com/docker/model-cli/desktop"
-	mockdesktop "github.com/docker/model-cli/mocks"
+	"github.com/docker/model-runner/cmd/cli/desktop"
+	mockdesktop "github.com/docker/model-runner/cmd/cli/mocks"
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
