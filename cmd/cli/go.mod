@@ -13,7 +13,7 @@ require (
 	github.com/docker/go-connections v0.5.0
 	github.com/docker/go-units v0.5.0
 	github.com/docker/model-distribution v0.0.0-20250918153037-7d9fc7b72b57
-	github.com/docker/model-runner v0.0.0-20250911130340-38bb0171c947
+	github.com/docker/model-runner v0.0.0
 	github.com/fatih/color v1.18.0
 	github.com/google/go-containerregistry v0.20.6
 	github.com/mattn/go-isatty v0.0.20
@@ -139,3 +139,5 @@ require (
 )
 
 replace github.com/kolesnikovae/go-winjob => github.com/docker/go-winjob v0.0.0-20250829235554-57b487ebcbc5
+
+replace github.com/docker/model-runner => ../..
