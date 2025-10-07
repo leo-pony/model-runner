@@ -74,70 +74,73 @@ func CreateTempConfigArchive(configFiles []string) (string, error) {
 	}
 	tmpPath := tmpFile.Name()
 
+	// Track success to determine if we should clean up the temp file
+	shouldKeepTempFile := false
+	defer func() {
+		if !shouldKeepTempFile {
+			os.Remove(tmpPath)
+		}
+	}()
+
 	// Create tar writer
 	tw := tar.NewWriter(tmpFile)
 
 	// Add each config file to tar (preserving just filename, not full path)
 	for _, filePath := range configFiles {
-		// Open the file
-		file, err := os.Open(filePath)
-		if err != nil {
+		if err := addFileToTar(tw, filePath); err != nil {
 			tw.Close()
 			tmpFile.Close()
-			os.Remove(tmpPath)
-			return "", fmt.Errorf("open config file %s: %w", filePath, err)
+			return "", err
 		}
-
-		// Get file info for tar header
-		fileInfo, err := file.Stat()
-		if err != nil {
-			file.Close()
-			tw.Close()
-			tmpFile.Close()
-			os.Remove(tmpPath)
-			return "", fmt.Errorf("stat config file %s: %w", filePath, err)
-		}
-
-		// Create tar header (use only basename, not full path)
-		header := &tar.Header{
-			Name:    filepath.Base(filePath),
-			Size:    fileInfo.Size(),
-			Mode:    int64(fileInfo.Mode()),
-			ModTime: fileInfo.ModTime(),
-		}
-
-		// Write header
-		if err := tw.WriteHeader(header); err != nil {
-			file.Close()
-			tw.Close()
-			tmpFile.Close()
-			os.Remove(tmpPath)
-			return "", fmt.Errorf("write tar header for %s: %w", filePath, err)
-		}
-
-		// Copy file contents
-		if _, err := io.Copy(tw, file); err != nil {
-			file.Close()
-			tw.Close()
-			tmpFile.Close()
-			os.Remove(tmpPath)
-			return "", fmt.Errorf("write tar content for %s: %w", filePath, err)
-		}
-
-		file.Close()
 	}
 
-	// Close tar writer and file
+	// Close tar writer first
 	if err := tw.Close(); err != nil {
 		tmpFile.Close()
-		os.Remove(tmpPath)
 		return "", fmt.Errorf("close tar writer: %w", err)
 	}
 
+	// Close temp file
 	if err := tmpFile.Close(); err != nil {
-		os.Remove(tmpPath)
 		return "", fmt.Errorf("close temp file: %w", err)
 	}
 
+	shouldKeepTempFile = true
 	return tmpPath, nil
+}
+
+// addFileToTar adds a single file to the tar archive with only its basename (not full path)
+func addFileToTar(tw *tar.Writer, filePath string) error {
+	// Open the file
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("open file %s: %w", filePath, err)
+	}
+	defer file.Close()
+
+	// Get file info for tar header
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return fmt.Errorf("stat file %s: %w", filePath, err)
+	}
+
+	// Create tar header (use only basename, not full path)
+	header := &tar.Header{
+		Name:    filepath.Base(filePath),
+		Size:    fileInfo.Size(),
+		Mode:    int64(fileInfo.Mode()),
+		ModTime: fileInfo.ModTime(),
+	}
+
+	// Write header
+	if err := tw.WriteHeader(header); err != nil {
+		return fmt.Errorf("write tar header for %s: %w", filePath, err)
+	}
+
+	// Copy file contents
+	if _, err := io.Copy(tw, file); err != nil {
+		return fmt.Errorf("write tar content for %s: %w", filePath, err)
+	}
+
+	return nil
 }
