@@ -110,10 +110,6 @@ github.com/docker/go-units v0.5.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDD
 github.com/docker/go-winjob v0.0.0-20250829235554-57b487ebcbc5 h1:dxSFEb0EEmvceIawSFNDMrvKakRz2t+2WYpY3dFAT04=
 github.com/docker/go-winjob v0.0.0-20250829235554-57b487ebcbc5/go.mod h1:ICOGmIXdwhfid7rQP+tLvDJqVg0lHdEk3pI5nsapTtg=
 github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7/go.mod h1:cyGadeNEkKy96OOhEzfZl+yxihPEzKnqJwvfuSUqbZE=
-github.com/docker/model-distribution v0.0.0-20250918153037-7d9fc7b72b57 h1:WHiPO9UmO5v97T3ksQUA2SbYVkTdUCSFobznegL97kk=
-github.com/docker/model-distribution v0.0.0-20250918153037-7d9fc7b72b57/go.mod h1:bV1RH2e79nTwOW38GoMU9UO8gpZVLH9+cZeEeR4wSeE=
-github.com/docker/model-runner v0.0.0-20250911130340-38bb0171c947 h1:6Dz1SFZONEd8tlKetn2Gu6v5HDJI/YtUFwkqHGwrsV0=
-github.com/docker/model-runner v0.0.0-20250911130340-38bb0171c947/go.mod h1:cl7panafjkSHllYCCGYAzty2aUvbwk55Gi35v06XL80=
 github.com/dvsekhvalnov/jose2go v0.0.0-20170216131308-f21a8cedbbae/go.mod h1:7BvyPhdbLxMXIYTFPLsyJRFMsKmOZnQmzh6Gb+uquuM=
 github.com/elastic/go-sysinfo v1.15.3 h1:W+RnmhKFkqPTCRoFq2VCTmsT4p/fwpo+3gKNQsn1XU0=
 github.com/elastic/go-sysinfo v1.15.3/go.mod h1:K/cNrqYTDrSoMh2oDkYEMS2+a72GRxMvNP+GC+vRIlo=
