@@ -79,11 +79,14 @@ func newPackagedCmd() *cobra.Command {
 				// Check if it's a directory
 				info, err := os.Stat(opts.safetensorsDir)
 				if err != nil {
-					return fmt.Errorf(
-						"Safetensors directory does not exist: %s\n\n"+
-							"See 'docker model package --help' for more information",
-						opts.safetensorsDir,
-					)
+					if os.IsNotExist(err) {
+						return fmt.Errorf(
+							"Safetensors directory does not exist: %s\n\n"+
+								"See 'docker model package --help' for more information",
+							opts.safetensorsDir,
+						)
+					}
+					return fmt.Errorf("could not access safetensors directory %q: %w", opts.safetensorsDir, err)
 				}
 				if !info.IsDir() {
 					return fmt.Errorf(
