@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/docker/model-cli/commands/completion"
+	"github.com/docker/model-runner/cmd/cli/commands/completion"
 	"github.com/spf13/cobra"
 )
 

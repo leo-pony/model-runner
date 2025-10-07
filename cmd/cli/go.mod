@@ -1,8 +1,6 @@
-module github.com/docker/model-cli
+module github.com/docker/model-runner/cmd/cli
 
-go 1.24
-
-toolchain go1.24.4
+go 1.24.0
 
 require (
 	github.com/charmbracelet/glamour v0.10.0
@@ -12,7 +10,6 @@ require (
 	github.com/docker/docker v28.2.2+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/docker/go-units v0.5.0
-	github.com/docker/model-distribution v0.0.0-20250918153037-7d9fc7b72b57
 	github.com/docker/model-runner v0.0.0
 	github.com/fatih/color v1.18.0
 	github.com/google/go-containerregistry v0.20.6
@@ -134,7 +131,6 @@ require (
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	gotest.tools/v3 v3.5.2 // indirect
 	howett.net/plist v1.0.1 // indirect
 )
 

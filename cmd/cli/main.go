@@ -7,8 +7,8 @@ import (
 	"github.com/docker/cli/cli-plugins/manager"
 	"github.com/docker/cli/cli-plugins/plugin"
 	"github.com/docker/cli/cli/command"
-	"github.com/docker/model-cli/commands"
-	"github.com/docker/model-cli/desktop"
+	"github.com/docker/model-runner/cmd/cli/commands"
+	"github.com/docker/model-runner/cmd/cli/desktop"
 )
 
 func main() {

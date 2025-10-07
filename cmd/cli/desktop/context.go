@@ -14,8 +14,8 @@ import (
 	"github.com/docker/cli/cli/command"
 	"github.com/docker/cli/cli/context/docker"
 	clientpkg "github.com/docker/docker/client"
-	"github.com/docker/model-cli/pkg/standalone"
-	"github.com/docker/model-cli/pkg/types"
+	"github.com/docker/model-runner/cmd/cli/pkg/standalone"
+	"github.com/docker/model-runner/cmd/cli/pkg/types"
 	"github.com/docker/model-runner/pkg/inference"
 )
 

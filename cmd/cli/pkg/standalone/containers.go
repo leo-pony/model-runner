@@ -20,8 +20,8 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	gpupkg "github.com/docker/model-cli/pkg/gpu"
-	"github.com/docker/model-cli/pkg/types"
+	gpupkg "github.com/docker/model-runner/cmd/cli/pkg/gpu"
+	"github.com/docker/model-runner/cmd/cli/pkg/types"
 )
 
 // controllerContainerName is the name to use for the controller container.

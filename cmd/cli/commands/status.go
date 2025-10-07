@@ -3,12 +3,12 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/docker/model-cli/pkg/types"
+	"github.com/docker/model-runner/cmd/cli/pkg/types"
 	"os"
 
 	"github.com/docker/cli/cli-plugins/hooks"
-	"github.com/docker/model-cli/commands/completion"
-	"github.com/docker/model-cli/desktop"
+	"github.com/docker/model-runner/cmd/cli/commands/completion"
+	"github.com/docker/model-runner/cmd/cli/desktop"
 	"github.com/spf13/cobra"
 )
 
