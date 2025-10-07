@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"os"
 	"path/filepath"
 
 	"github.com/docker/model-runner/pkg/distribution/builder"
+	"github.com/docker/model-runner/pkg/distribution/packaging"
 	"github.com/docker/model-runner/pkg/distribution/registry"
 	"github.com/docker/model-runner/pkg/distribution/tarball"
 	"github.com/docker/model-runner/pkg/distribution/types"
@@ -24,10 +26,11 @@ func newPackagedCmd() *cobra.Command {
 	var opts packageOptions
 
 	c := &cobra.Command{
-		Use:   "package --gguf <path> [--license <path>...] [--context-size <tokens>] [--push] MODEL",
-		Short: "Package a GGUF file into a Docker model OCI artifact, with optional licenses.",
-		Long: "Package a GGUF file into a Docker model OCI artifact, with optional licenses. The package is sent to the model-runner, unless --push is specified.\n" +
-			"When packaging a sharded model --gguf should point to the first shard. All shard files should be siblings and should include the index in the file name (e.g. model-00001-of-00015.gguf).",
+		Use:   "package (--gguf <path> | --safetensors-dir <path>) [--license <path>...] [--context-size <tokens>] [--push] MODEL",
+		Short: "Package a GGUF file or Safetensors directory into a Docker model OCI artifact.",
+		Long: "Package a GGUF file or Safetensors directory into a Docker model OCI artifact, with optional licenses. The package is sent to the model-runner, unless --push is specified.\n" +
+			"When packaging a sharded GGUF model, --gguf should point to the first shard. All shard files should be siblings and should include the index in the file name (e.g. model-00001-of-00015.gguf).\n" +
+			"When packaging a Safetensors model, --safetensors-dir should point to a directory containing .safetensors files and config files (*.json, merges.txt). All files will be auto-discovered and config files will be packaged into a tar archive.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf(
@@ -37,19 +40,62 @@ func newPackagedCmd() *cobra.Command {
 					cmd.Use,
 				)
 			}
-			if opts.ggufPath == "" {
+
+			// Validate that either --gguf or --safetensors-dir is provided (mutually exclusive)
+			if opts.ggufPath == "" && opts.safetensorsDir == "" {
 				return fmt.Errorf(
-					"GGUF path is required.\n\n" +
+					"Either --gguf or --safetensors-dir path is required.\n\n" +
 						"See 'docker model package --help' for more information",
 				)
 			}
-			if !filepath.IsAbs(opts.ggufPath) {
+			if opts.ggufPath != "" && opts.safetensorsDir != "" {
 				return fmt.Errorf(
-					"GGUF path must be absolute.\n\n" +
+					"Cannot specify both --gguf and --safetensors-dir. Please use only one format.\n\n" +
 						"See 'docker model package --help' for more information",
 				)
 			}
-			opts.ggufPath = filepath.Clean(opts.ggufPath)
+
+			// Validate GGUF path if provided
+			if opts.ggufPath != "" {
+				if !filepath.IsAbs(opts.ggufPath) {
+					return fmt.Errorf(
+						"GGUF path must be absolute.\n\n" +
+							"See 'docker model package --help' for more information",
+					)
+				}
+				opts.ggufPath = filepath.Clean(opts.ggufPath)
+			}
+
+			// Validate safetensors directory if provided
+			if opts.safetensorsDir != "" {
+				if !filepath.IsAbs(opts.safetensorsDir) {
+					return fmt.Errorf(
+						"Safetensors directory path must be absolute.\n\n" +
+							"See 'docker model package --help' for more information",
+					)
+				}
+				opts.safetensorsDir = filepath.Clean(opts.safetensorsDir)
+
+				// Check if it's a directory
+				info, err := os.Stat(opts.safetensorsDir)
+				if err != nil {
+					if os.IsNotExist(err) {
+						return fmt.Errorf(
+							"Safetensors directory does not exist: %s\n\n"+
+								"See 'docker model package --help' for more information",
+							opts.safetensorsDir,
+						)
+					}
+					return fmt.Errorf("could not access safetensors directory %q: %w", opts.safetensorsDir, err)
+				}
+				if !info.IsDir() {
+					return fmt.Errorf(
+						"Safetensors path must be a directory: %s\n\n"+
+							"See 'docker model package --help' for more information",
+						opts.safetensorsDir,
+					)
+				}
+			}
 
 			for i, l := range opts.licensePaths {
 				if !filepath.IsAbs(l) {
@@ -73,7 +119,8 @@ func newPackagedCmd() *cobra.Command {
 		ValidArgsFunction: completion.NoComplete,
 	}
 
-	c.Flags().StringVar(&opts.ggufPath, "gguf", "", "absolute path to gguf file (required)")
+	c.Flags().StringVar(&opts.ggufPath, "gguf", "", "absolute path to gguf file")
+	c.Flags().StringVar(&opts.safetensorsDir, "safetensors-dir", "", "absolute path to directory containing safetensors files and config")
 	c.Flags().StringVar(&opts.chatTemplatePath, "chat-template", "", "absolute path to chat template file (must be Jinja format)")
 	c.Flags().StringArrayVarP(&opts.licensePaths, "license", "l", nil, "absolute path to a license file")
 	c.Flags().BoolVar(&opts.push, "push", false, "push to registry (if not set, the model is loaded into the Model Runner content store)")
@@ -85,6 +132,7 @@ type packageOptions struct {
 	chatTemplatePath string
 	contextSize      uint64
 	ggufPath         string
+	safetensorsDir   string
 	licensePaths     []string
 	push             bool
 	tag              string
@@ -106,11 +154,41 @@ func packageModel(cmd *cobra.Command, opts packageOptions) error {
 		return err
 	}
 
-	// Create package builder with GGUF file
-	cmd.PrintErrf("Adding GGUF file from %q\n", opts.ggufPath)
-	pkg, err := builder.FromGGUF(opts.ggufPath)
-	if err != nil {
-		return fmt.Errorf("add gguf file: %w", err)
+	// Create package builder based on model format
+	var pkg *builder.Builder
+	if opts.ggufPath != "" {
+		cmd.PrintErrf("Adding GGUF file from %q\n", opts.ggufPath)
+		pkg, err = builder.FromGGUF(opts.ggufPath)
+		if err != nil {
+			return fmt.Errorf("add gguf file: %w", err)
+		}
+	} else {
+		// Safetensors model from directory
+		cmd.PrintErrf("Scanning directory %q for safetensors model...\n", opts.safetensorsDir)
+		safetensorsPaths, tempConfigArchive, err := packaging.PackageFromDirectory(opts.safetensorsDir)
+		if err != nil {
+			return fmt.Errorf("scan safetensors directory: %w", err)
+		}
+
+		// Clean up temp config archive when done
+		if tempConfigArchive != "" {
+			defer os.Remove(tempConfigArchive)
+		}
+
+		cmd.PrintErrf("Found %d safetensors file(s)\n", len(safetensorsPaths))
+		pkg, err = builder.FromSafetensors(safetensorsPaths)
+		if err != nil {
+			return fmt.Errorf("create safetensors model: %w", err)
+		}
+
+		// Add config archive if it was created
+		if tempConfigArchive != "" {
+			cmd.PrintErrf("Adding config archive from directory\n")
+			pkg, err = pkg.WithConfigArchive(tempConfigArchive)
+			if err != nil {
+				return fmt.Errorf("add config archive: %w", err)
+			}
+		}
 	}
 
 	// Set context size
