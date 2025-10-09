@@ -1,31 +1,10 @@
 # Model Runner
 
-The backend library for the
-[Docker Model Runner](https://docs.docker.com/desktop/features/model-runner/).
+Docker Model Runner (DMR) makes it easy to manage, run, and deploy AI models using Docker. Designed for developers, Docker Model Runner streamlines the process of pulling, running, and serving large language models (LLMs) and other AI models directly from Docker Hub or any OCI-compliant registry.
 
 ## Overview
 
-> [!NOTE]
-> This package is still under rapid development and its APIs should not be
-> considered stable.
-
-This package supports the Docker Model Runner in Docker Desktop (in conjunction
-with [Model Distribution](./pkg/distribution) and the
-[Model CLI](./cmd/cli)). It includes a `main.go` that
-mimics its integration with Docker Desktop and allows the package to be run in a
-standalone mode.
-
-## Contributing - Building from Source
-
-This guide is for external contributors who want to build and test the complete Docker Model Runner ecosystem from source.
-
-### Architecture Overview
-
-The Docker Model Runner ecosystem consists of three main components:
-
-- **[model-runner](https://github.com/docker/model-runner)** (this repository) - The backend daemon/server that manages and runs AI models
-- **[model-cli](https://github.com/docker/model-cli)** - The CLI client that communicates with model-runner
-- **[model-spec](https://github.com/docker/model-spec)** - The specification for packaging models as OCI artifacts
+This package supports the Docker Model Runner in Docker Desktop and Docker Engine.
 
 ### Prerequisites
 
