@@ -4,7 +4,9 @@ ARG GO_VERSION=1.24
 ARG LLAMA_SERVER_VERSION=latest
 ARG LLAMA_SERVER_VARIANT=cpu
 ARG LLAMA_BINARY_PATH=/com.docker.llama-server.native.linux.${LLAMA_SERVER_VARIANT}.${TARGETARCH}
-ARG BASE_IMAGE=ubuntu:24.04
+
+# only 25.10 for cpu variant for max hardware support with vulkan
+ARG BASE_IMAGE=ubuntu:25.10
 
 FROM docker.io/library/golang:${GO_VERSION}-bookworm AS builder
 
