@@ -114,10 +114,10 @@ func (s *Scheduler) routeHandlers() map[string]http.HandlerFunc {
 	}
 
 	// Register /v1/models routes - these delegate to the model manager
-	m["GET "+inference.InferencePrefix+"/{backend}/v1/models"] = s.handleOpenAIGetModels
-	m["GET "+inference.InferencePrefix+"/{backend}/v1/models/{name...}"] = s.handleOpenAIGetModel
-	m["GET "+inference.InferencePrefix+"/v1/models"] = s.handleOpenAIGetModels
-	m["GET "+inference.InferencePrefix+"/v1/models/{name...}"] = s.handleOpenAIGetModel
+	m["GET "+inference.InferencePrefix+"/{backend}/v1/models"] = s.handleModels
+	m["GET "+inference.InferencePrefix+"/{backend}/v1/models/{name...}"] = s.handleModels
+	m["GET "+inference.InferencePrefix+"/v1/models"] = s.handleModels
+	m["GET "+inference.InferencePrefix+"/v1/models/{name...}"] = s.handleModels
 
 	m["GET "+inference.InferencePrefix+"/status"] = s.GetBackendStatus
 	m["GET "+inference.InferencePrefix+"/ps"] = s.GetRunningBackends
@@ -509,15 +509,9 @@ func parseBackendMode(mode string) inference.BackendMode {
 	}
 }
 
-// handleOpenAIGetModels handles GET /engines/{backend}/v1/models requests
+// handleModels handles GET /engines/{backend}/v1/models* requests
 // by delegating to the model manager
-func (s *Scheduler) handleOpenAIGetModels(w http.ResponseWriter, r *http.Request) {
-	s.modelManager.ServeHTTP(w, r)
-}
-
-// handleOpenAIGetModel handles GET /engines/{backend}/v1/models/{name...} requests
-// by delegating to the model manager
-func (s *Scheduler) handleOpenAIGetModel(w http.ResponseWriter, r *http.Request) {
+func (s *Scheduler) handleModels(w http.ResponseWriter, r *http.Request) {
 	s.modelManager.ServeHTTP(w, r)
 }
 
