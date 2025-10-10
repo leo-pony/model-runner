@@ -6,7 +6,7 @@ main() {
   apt-get update
   local packages=("ca-certificates")
   if [ "$LLAMA_SERVER_VARIANT" = "generic" ] || [ "$LLAMA_SERVER_VARIANT" = "cpu" ]; then
-    packages+=("libvulkan1" "mesa-vulkan-drivers"))
+    packages+=("libvulkan1" "mesa-vulkan-drivers")
   fi
 
   apt-get install -y "${packages[@]}"
