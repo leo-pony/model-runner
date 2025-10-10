@@ -6,6 +6,24 @@ Docker Model Runner (DMR) makes it easy to manage, run, and deploy AI models usi
 
 This package supports the Docker Model Runner in Docker Desktop and Docker Engine.
 
+### Installation
+
+For macOS and Windows, install Docker Desktop:
+
+https://docs.docker.com/desktop/
+
+For Linux, install Docker Engine:
+
+```bash
+curl -fsSL https://get.docker.com | sudo bash
+```
+
+Docker Model Runner is included in the above tools.
+
+For more details refer to:
+
+https://docs.docker.com/ai/model-runner/get-started/
+
 ### Prerequisites
 
 Before building from source, ensure you have the following installed:
