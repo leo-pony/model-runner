@@ -1,7 +1,7 @@
-# docker model install-runner
+# docker model restart-runner
 
 <!---MARKER_GEN_START-->
-Install Docker Model Runner (Docker Engine only)
+Restart Docker Model Runner (Docker Engine only)
 
 ### Options
 
@@ -17,4 +17,6 @@ Install Docker Model Runner (Docker Engine only)
 
 ## Description
 
- This command runs implicitly when a docker model command is executed. You can run this command explicitly to add a new configuration.
+This command restarts the Docker Model Runner without pulling container images. Use this command to restart the runner when you already have the required images locally.
+
+For the first-time setup or to ensure you have the latest images, use `docker model install-runner` instead.

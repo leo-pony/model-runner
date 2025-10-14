@@ -17,9 +17,12 @@ cname:
     - docker model pull
     - docker model push
     - docker model requests
+    - docker model restart-runner
     - docker model rm
     - docker model run
+    - docker model start-runner
     - docker model status
+    - docker model stop-runner
     - docker model tag
     - docker model uninstall-runner
     - docker model unload
@@ -36,9 +39,12 @@ clink:
     - docker_model_pull.yaml
     - docker_model_push.yaml
     - docker_model_requests.yaml
+    - docker_model_restart-runner.yaml
     - docker_model_rm.yaml
     - docker_model_run.yaml
+    - docker_model_start-runner.yaml
     - docker_model_status.yaml
+    - docker_model_stop-runner.yaml
     - docker_model_tag.yaml
     - docker_model_uninstall-runner.yaml
     - docker_model_unload.yaml

@@ -18,11 +18,14 @@ Docker Model Runner
 | [`pull`](model_pull.md)                         | Pull a model from Docker Hub or HuggingFace to your local environment          |
 | [`push`](model_push.md)                         | Push a model to Docker Hub                                                     |
 | [`requests`](model_requests.md)                 | Fetch requests+responses from Docker Model Runner                              |
+| [`restart-runner`](model_restart-runner.md)     | Restart Docker Model Runner (Docker Engine only)                               |
 | [`rm`](model_rm.md)                             | Remove local models downloaded from Docker Hub                                 |
 | [`run`](model_run.md)                           | Run a model and interact with it using a submitted prompt or chat mode         |
+| [`start-runner`](model_start-runner.md)         | Start Docker Model Runner (Docker Engine only)                                 |
 | [`status`](model_status.md)                     | Check if the Docker Model Runner is running                                    |
+| [`stop-runner`](model_stop-runner.md)           | Stop Docker Model Runner (Docker Engine only)                                  |
 | [`tag`](model_tag.md)                           | Tag a model                                                                    |
-| [`uninstall-runner`](model_uninstall-runner.md) | Uninstall Docker Model Runner                                                  |
+| [`uninstall-runner`](model_uninstall-runner.md) | Uninstall Docker Model Runner (Docker Engine only)                             |
 | [`unload`](model_unload.md)                     | Unload running models                                                          |
 | [`version`](model_version.md)                   | Show the Docker Model Runner version                                           |
 
