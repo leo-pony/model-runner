@@ -33,6 +33,9 @@ Run `./model --help` to see all commands and options.
 
 ### Common Commands
 - `model install-runner` — Install the Docker Model Runner
+- `model start-runner` — Start the Docker Model Runner
+- `model stop-runner` — Stop the Docker Model Runner
+- `model restart-runner` — Restart the Docker Model Runner
 - `model run MODEL [PROMPT]` — Run a model with a prompt or enter chat mode
 - `model list` — List available models
 - `model package --gguf <path> --push <target>` — Package and push a model

@@ -47,7 +47,7 @@ func New(opts Options) (*LocalStore, error) {
 
 // Reset clears all contents of the store directory and reinitializes the store.
 // It removes all files and subdirectories within the store's root path, but preserves the root directory itself.
-// This allows the method to work correctly when the store directory is a mounted volume (e.g., in Docker CE).
+// This allows the method to work correctly when the store directory is a mounted volume (e.g., in Docker Engine).
 func (s *LocalStore) Reset() error {
 	entries, err := os.ReadDir(s.rootPath)
 	if err != nil {
