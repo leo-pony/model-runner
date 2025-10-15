@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/docker/model-runner/cmd/cli/commands/completion"
 	"github.com/docker/model-runner/cmd/cli/desktop"
+	"github.com/docker/model-runner/cmd/cli/readline"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -79,6 +80,167 @@ func readMultilineInput(cmd *cobra.Command, scanner *bufio.Scanner) (string, err
 	}
 
 	return multilineInput.String(), nil
+}
+
+// generateInteractiveWithReadline provides an enhanced interactive mode with readline support
+func generateInteractiveWithReadline(cmd *cobra.Command, desktopClient *desktop.Client, backend, model, apiKey string) error {
+	usage := func() {
+		fmt.Fprintln(os.Stderr, "Available Commands:")
+		fmt.Fprintln(os.Stderr, "  /bye            Exit")
+		fmt.Fprintln(os.Stderr, "  /?, /help       Help for a command")
+		fmt.Fprintln(os.Stderr, "  /? shortcuts    Help for keyboard shortcuts")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, `Use """ to begin a multi-line message.`)
+		fmt.Fprintln(os.Stderr, "")
+	}
+
+	usageShortcuts := func() {
+		fmt.Fprintln(os.Stderr, "Available keyboard shortcuts:")
+		fmt.Fprintln(os.Stderr, "  Ctrl + a            Move to the beginning of the line (Home)")
+		fmt.Fprintln(os.Stderr, "  Ctrl + e            Move to the end of the line (End)")
+		fmt.Fprintln(os.Stderr, "   Alt + b            Move back (left) one word")
+		fmt.Fprintln(os.Stderr, "   Alt + f            Move forward (right) one word")
+		fmt.Fprintln(os.Stderr, "  Ctrl + k            Delete the sentence after the cursor")
+		fmt.Fprintln(os.Stderr, "  Ctrl + u            Delete the sentence before the cursor")
+		fmt.Fprintln(os.Stderr, "  Ctrl + w            Delete the word before the cursor")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "  Ctrl + l            Clear the screen")
+		fmt.Fprintln(os.Stderr, "  Ctrl + c            Stop the model from responding")
+		fmt.Fprintln(os.Stderr, "  Ctrl + d            Exit (/bye)")
+		fmt.Fprintln(os.Stderr, "")
+	}
+
+	scanner, err := readline.New(readline.Prompt{
+		Prompt:         "> ",
+		AltPrompt:      "... ",
+		Placeholder:    "Send a message (/? for help)",
+		AltPlaceholder: `Use """ to end multi-line input`,
+	})
+	if err != nil {
+		// Fall back to basic input mode if readline initialization fails
+		return generateInteractiveBasic(cmd, desktopClient, backend, model, apiKey)
+	}
+
+	// Disable history if the environment variable is set
+	if os.Getenv("DOCKER_MODEL_NOHISTORY") != "" {
+		scanner.HistoryDisable()
+	}
+
+	fmt.Print(readline.StartBracketedPaste)
+	defer fmt.Printf(readline.EndBracketedPaste)
+
+	var sb strings.Builder
+	var multiline bool
+
+	for {
+		line, err := scanner.Readline()
+		switch {
+		case errors.Is(err, io.EOF):
+			fmt.Println()
+			return nil
+		case errors.Is(err, readline.ErrInterrupt):
+			if line == "" {
+				fmt.Println("\nUse Ctrl + d or /bye to exit.")
+			}
+
+			scanner.Prompt.UseAlt = false
+			sb.Reset()
+
+			continue
+		case err != nil:
+			return err
+		}
+
+		switch {
+		case multiline:
+			// check if there's a multiline terminating string
+			before, ok := strings.CutSuffix(line, `"""`)
+			sb.WriteString(before)
+			if !ok {
+				fmt.Fprintln(&sb)
+				continue
+			}
+
+			multiline = false
+			scanner.Prompt.UseAlt = false
+		case strings.HasPrefix(line, `"""`):
+			line := strings.TrimPrefix(line, `"""`)
+			line, ok := strings.CutSuffix(line, `"""`)
+			sb.WriteString(line)
+			if !ok {
+				// no multiline terminating string; need more input
+				fmt.Fprintln(&sb)
+				multiline = true
+				scanner.Prompt.UseAlt = true
+			}
+		case scanner.Pasting:
+			fmt.Fprintln(&sb, line)
+			continue
+		case strings.HasPrefix(line, "/help"), strings.HasPrefix(line, "/?"):
+			args := strings.Fields(line)
+			if len(args) > 1 {
+				switch args[1] {
+				case "shortcut", "shortcuts":
+					usageShortcuts()
+				default:
+					usage()
+				}
+			} else {
+				usage()
+			}
+			continue
+		case strings.HasPrefix(line, "/exit"), strings.HasPrefix(line, "/bye"):
+			return nil
+		case strings.HasPrefix(line, "/"):
+			fmt.Printf("Unknown command '%s'. Type /? for help\n", strings.Fields(line)[0])
+			continue
+		default:
+			sb.WriteString(line)
+		}
+
+		if sb.Len() > 0 && !multiline {
+			userInput := sb.String()
+
+			if err := chatWithMarkdown(cmd, desktopClient, backend, model, userInput, apiKey); err != nil {
+				cmd.PrintErr(handleClientError(err, "Failed to generate a response"))
+				sb.Reset()
+				continue
+			}
+
+			cmd.Println()
+			sb.Reset()
+		}
+	}
+}
+
+// generateInteractiveBasic provides a basic interactive mode (fallback)
+func generateInteractiveBasic(cmd *cobra.Command, desktopClient *desktop.Client, backend, model, apiKey string) error {
+	scanner := bufio.NewScanner(os.Stdin)
+	for {
+		userInput, err := readMultilineInput(cmd, scanner)
+		if err != nil {
+			if err.Error() == "EOF" {
+				break
+			}
+			return fmt.Errorf("Error reading input: %v", err)
+		}
+
+		if strings.ToLower(strings.TrimSpace(userInput)) == "/bye" {
+			break
+		}
+
+		if strings.TrimSpace(userInput) == "" {
+			continue
+		}
+
+		if err := chatWithMarkdown(cmd, desktopClient, backend, model, userInput, apiKey); err != nil {
+			cmd.PrintErr(handleClientError(err, "Failed to generate a response"))
+			continue
+		}
+
+		cmd.Println()
+	}
+	return nil
 }
 
 var (
@@ -408,36 +570,13 @@ func newRunCmd() *cobra.Command {
 				return nil
 			}
 
-			scanner := bufio.NewScanner(os.Stdin)
-			cmd.Println("Interactive chat mode started. Type '/bye' to exit.")
-
-			for {
-				userInput, err := readMultilineInput(cmd, scanner)
-				if err != nil {
-					if err.Error() == "EOF" {
-						cmd.Println("\nChat session ended.")
-						break
-					}
-					return fmt.Errorf("Error reading input: %v", err)
-				}
-
-				if strings.ToLower(strings.TrimSpace(userInput)) == "/bye" {
-					cmd.Println("Chat session ended.")
-					break
-				}
-
-				if strings.TrimSpace(userInput) == "" {
-					continue
-				}
-
-				if err := chatWithMarkdown(cmd, desktopClient, backend, model, userInput, apiKey); err != nil {
-					cmd.PrintErr(handleClientError(err, "Failed to generate a response"))
-					continue
-				}
-
-				cmd.Println()
+			// Use enhanced readline-based interactive mode when terminal is available
+			if term.IsTerminal(int(os.Stdin.Fd())) {
+				return generateInteractiveWithReadline(cmd, desktopClient, backend, model, apiKey)
 			}
-			return nil
+
+			// Fall back to basic mode if not a terminal
+			return generateInteractiveBasic(cmd, desktopClient, backend, model, apiKey)
 		},
 		ValidArgsFunction: completion.ModelNames(getDesktopClient, 1),
 	}
