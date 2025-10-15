@@ -366,6 +366,11 @@ func (c *Client) fullModelID(id string) (string, error) {
 
 // Chat performs a chat request and streams the response content with selective markdown rendering.
 func (c *Client) Chat(backend, model, prompt, apiKey string, outputFunc func(string), shouldUseMarkdown bool) error {
+	return c.ChatWithContext(context.Background(), backend, model, prompt, apiKey, outputFunc, shouldUseMarkdown)
+}
+
+// ChatWithContext performs a chat request with context support for cancellation and streams the response content with selective markdown rendering.
+func (c *Client) ChatWithContext(ctx context.Context, backend, model, prompt, apiKey string, outputFunc func(string), shouldUseMarkdown bool) error {
 	model = normalizeHuggingFaceModelName(model)
 	if !strings.Contains(strings.Trim(model, "/"), "/") {
 		// Do an extra API call to check if the model parameter isn't a model ID.
@@ -397,7 +402,8 @@ func (c *Client) Chat(backend, model, prompt, apiKey string, outputFunc func(str
 		completionsPath = inference.InferencePrefix + "/v1/chat/completions"
 	}
 
-	resp, err := c.doRequestWithAuth(
+	resp, err := c.doRequestWithAuthContext(
+		ctx,
 		http.MethodPost,
 		completionsPath,
 		bytes.NewReader(jsonData),
@@ -432,6 +438,13 @@ func (c *Client) Chat(backend, model, prompt, apiKey string, outputFunc func(str
 
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
+		// Check if context was cancelled
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		line := scanner.Text()
 		if line == "" {
 			continue
@@ -755,7 +768,11 @@ func (c *Client) doRequest(method, path string, body io.Reader) (*http.Response,
 
 // doRequestWithAuth is a helper function that performs HTTP requests with optional authentication
 func (c *Client) doRequestWithAuth(method, path string, body io.Reader, backend, apiKey string) (*http.Response, error) {
-	req, err := http.NewRequest(method, c.modelRunner.URL(path), body)
+	return c.doRequestWithAuthContext(context.Background(), method, path, body, backend, apiKey)
+}
+
+func (c *Client) doRequestWithAuthContext(ctx context.Context, method, path string, body io.Reader, backend, apiKey string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, c.modelRunner.URL(path), body)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
