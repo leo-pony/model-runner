@@ -52,7 +52,6 @@ Run `./model --help` to see all commands and options.
 Or enter chat mode:
 ```bash
 ./model run llama.cpp
-Interactive chat mode started. Type '/bye' to exit.
 > """
 Tell me a joke.
 """
