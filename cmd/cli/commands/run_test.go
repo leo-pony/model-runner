@@ -113,3 +113,46 @@ func TestReadMultilineInputUnclosed(t *testing.T) {
 		t.Errorf("readMultilineInput() error should mention unclosed multiline input, got: %v", err)
 	}
 }
+
+func TestRunCmdDetachFlag(t *testing.T) {
+	// Create the run command
+	cmd := newRunCmd()
+
+	// Verify the --detach flag exists
+	detachFlag := cmd.Flags().Lookup("detach")
+	if detachFlag == nil {
+		t.Fatal("--detach flag not found")
+	}
+
+	// Verify the shorthand flag exists
+	detachFlagShort := cmd.Flags().ShorthandLookup("d")
+	if detachFlagShort == nil {
+		t.Fatal("-d shorthand flag not found")
+	}
+
+	// Verify the default value is false
+	if detachFlag.DefValue != "false" {
+		t.Errorf("Expected default detach value to be 'false', got '%s'", detachFlag.DefValue)
+	}
+
+	// Verify the flag type
+	if detachFlag.Value.Type() != "bool" {
+		t.Errorf("Expected detach flag type to be 'bool', got '%s'", detachFlag.Value.Type())
+	}
+
+	// Test setting the flag value
+	err := cmd.Flags().Set("detach", "true")
+	if err != nil {
+		t.Errorf("Failed to set detach flag: %v", err)
+	}
+
+	// Verify the value was set
+	detachValue, err := cmd.Flags().GetBool("detach")
+	if err != nil {
+		t.Errorf("Failed to get detach flag value: %v", err)
+	}
+
+	if !detachValue {
+		t.Errorf("Expected detach flag value to be true, got false")
+	}
+}

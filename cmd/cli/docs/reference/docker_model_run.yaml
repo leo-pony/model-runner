@@ -39,6 +39,17 @@ options:
       experimentalcli: false
       kubernetes: false
       swarm: false
+    - option: detach
+      shorthand: d
+      value_type: bool
+      default_value: "false"
+      description: Load the model in the background without interaction
+      deprecated: false
+      hidden: false
+      experimental: false
+      experimentalcli: false
+      kubernetes: false
+      swarm: false
     - option: ignore-runtime-memory-check
       value_type: bool
       default_value: "false"
@@ -78,6 +89,14 @@ examples: |-
     > /bye
     Chat session ended.
     ```
+
+    ### Pre-load a model
+
+    ```console
+    docker model run --detach ai/smollm2
+    ```
+
+    This loads the model into memory without interaction, ensuring maximum performance for subsequent requests.
 deprecated: false
 hidden: false
 experimental: false

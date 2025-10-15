@@ -307,6 +307,7 @@ func newRunCmd() *cobra.Command {
 	var backend string
 	var ignoreRuntimeMemoryCheck bool
 	var colorMode string
+	var detach bool
 
 	const cmdArgs = "MODEL [PROMPT]"
 	c := &cobra.Command{
@@ -341,17 +342,20 @@ func newRunCmd() *cobra.Command {
 				prompt = strings.Join(args[1:], " ")
 			}
 
-			fi, err := os.Stdin.Stat()
-			if err == nil && (fi.Mode()&os.ModeCharDevice) == 0 {
-				// Read all from stdin
-				reader := bufio.NewReader(os.Stdin)
-				input, err := io.ReadAll(reader)
-				if err == nil {
-					if prompt != "" {
-						prompt += "\n\n"
-					}
+			// Only read from stdin if not in detach mode
+			if !detach {
+				fi, err := os.Stdin.Stat()
+				if err == nil && (fi.Mode()&os.ModeCharDevice) == 0 {
+					// Read all from stdin
+					reader := bufio.NewReader(os.Stdin)
+					input, err := io.ReadAll(reader)
+					if err == nil {
+						if prompt != "" {
+							prompt += "\n\n"
+						}
 
-					prompt += string(input)
+						prompt += string(input)
+					}
 				}
 			}
 
@@ -379,6 +383,21 @@ func newRunCmd() *cobra.Command {
 						return err
 					}
 				}
+			}
+
+			// Handle --detach flag: just load the model without interaction
+			if detach {
+				// Make a minimal request to load the model into memory
+				err := desktopClient.Chat(backend, model, "", apiKey, func(content string) {
+					// Silently discard output in detach mode
+				}, false)
+				if err != nil {
+					return handleClientError(err, "Failed to load model")
+				}
+				if debug {
+					cmd.Printf("Model %s loaded successfully\n", model)
+				}
+				return nil
 			}
 
 			if prompt != "" {
@@ -439,6 +458,7 @@ func newRunCmd() *cobra.Command {
 	c.Flags().MarkHidden("backend")
 	c.Flags().BoolVar(&ignoreRuntimeMemoryCheck, "ignore-runtime-memory-check", false, "Do not block pull if estimated runtime memory for model exceeds system resources.")
 	c.Flags().StringVar(&colorMode, "color", "auto", "Use colored output (auto|yes|no)")
+	c.Flags().BoolVarP(&detach, "detach", "d", false, "Load the model in the background without interaction")
 
 	return c
 }
