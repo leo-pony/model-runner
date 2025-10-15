@@ -160,13 +160,14 @@ func ensureStandaloneRunnerAvailable(ctx context.Context, printer standalone.Sta
 	return inspectStandaloneRunner(container), nil
 }
 
-// runnerOptions holds common configuration for install/start commands
+// runnerOptions holds common configuration for install/start/reinstall commands
 type runnerOptions struct {
-	port        uint16
-	host        string
-	gpuMode     string
-	doNotTrack  bool
-	pullImage   bool
+	port            uint16
+	host            string
+	gpuMode         string
+	doNotTrack      bool
+	pullImage       bool
+	pruneContainers bool
 }
 
 // runInstallOrStart is shared logic for install-runner and start-runner commands
@@ -216,16 +217,23 @@ func runInstallOrStart(cmd *cobra.Command, opts runnerOptions) error {
 		return fmt.Errorf("failed to create Docker client: %w", err)
 	}
 
-	// Check if an active model runner container already exists.
-	if ctrID, ctrName, _, err := standalone.FindControllerContainer(cmd.Context(), dockerClient); err != nil {
-		return err
-	} else if ctrID != "" {
-		if ctrName != "" {
-			cmd.Printf("Model Runner container %s (%s) is already running\n", ctrName, ctrID[:12])
-		} else {
-			cmd.Printf("Model Runner container %s is already running\n", ctrID[:12])
+	// If pruning containers (reinstall), remove any existing model runner containers.
+	if opts.pruneContainers {
+		if err := standalone.PruneControllerContainers(cmd.Context(), dockerClient, false, cmd); err != nil {
+			return fmt.Errorf("unable to remove model runner container(s): %w", err)
 		}
-		return nil
+	} else {
+		// Check if an active model runner container already exists (install only).
+		if ctrID, ctrName, _, err := standalone.FindControllerContainer(cmd.Context(), dockerClient); err != nil {
+			return err
+		} else if ctrID != "" {
+			if ctrName != "" {
+				cmd.Printf("Model Runner container %s (%s) is already running\n", ctrName, ctrID[:12])
+			} else {
+				cmd.Printf("Model Runner container %s is already running\n", ctrID[:12])
+			}
+			return nil
+		}
 	}
 
 	// Determine GPU support.
@@ -272,11 +280,12 @@ func newInstallRunner() *cobra.Command {
 		Short: "Install Docker Model Runner (Docker Engine only)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInstallOrStart(cmd, runnerOptions{
-				port:       port,
-				host:       host,
-				gpuMode:    gpuMode,
-				doNotTrack: doNotTrack,
-				pullImage:  true,
+				port:            port,
+				host:            host,
+				gpuMode:         gpuMode,
+				doNotTrack:      doNotTrack,
+				pullImage:       true,
+				pruneContainers: false,
 			})
 		},
 		ValidArgsFunction: completion.NoComplete,
