@@ -61,7 +61,7 @@ func readMultilineInput(cmd *cobra.Command, scanner *bufio.Scanner) (string, err
 
 	// Continue reading lines until we find the closing triple quotes
 	for {
-		cmd.Print("... ")
+		cmd.Print(". ")
 
 		if !scanner.Scan() {
 			if err := scanner.Err(); err != nil {
@@ -115,7 +115,7 @@ func generateInteractiveWithReadline(cmd *cobra.Command, desktopClient *desktop.
 
 	scanner, err := readline.New(readline.Prompt{
 		Prompt:         "> ",
-		AltPrompt:      "... ",
+		AltPrompt:      ". ",
 		Placeholder:    "Send a message (/? for help)",
 		AltPlaceholder: `Use """ to end multi-line input`,
 	})
