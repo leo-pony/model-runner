@@ -126,6 +126,9 @@ func main() {
 		log.WithFields(logrus.Fields{"component": "vllm"}),
 		nil,
 	)
+	if err != nil {
+		log.Fatalf("unable to initialize %s backend: %v", vllm.Name, err)
+	}
 
 	scheduler := scheduling.NewScheduler(
 		log,
