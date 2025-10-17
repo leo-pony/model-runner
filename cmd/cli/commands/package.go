@@ -106,6 +106,18 @@ func newPackagedCmd() *cobra.Command {
 				}
 				opts.licensePaths[i] = filepath.Clean(l)
 			}
+
+			// Validate dir-tar paths are relative (not absolute)
+			for _, dirPath := range opts.dirTarPaths {
+				if filepath.IsAbs(dirPath) {
+					return fmt.Errorf(
+						"dir-tar path must be relative, got absolute path: %s\n\n"+
+							"See 'docker model package --help' for more information",
+						dirPath,
+					)
+				}
+			}
+
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -123,6 +135,7 @@ func newPackagedCmd() *cobra.Command {
 	c.Flags().StringVar(&opts.safetensorsDir, "safetensors-dir", "", "absolute path to directory containing safetensors files and config")
 	c.Flags().StringVar(&opts.chatTemplatePath, "chat-template", "", "absolute path to chat template file (must be Jinja format)")
 	c.Flags().StringArrayVarP(&opts.licensePaths, "license", "l", nil, "absolute path to a license file")
+	c.Flags().StringArrayVar(&opts.dirTarPaths, "dir-tar", nil, "relative path to directory to package as tar (can be specified multiple times)")
 	c.Flags().BoolVar(&opts.push, "push", false, "push to registry (if not set, the model is loaded into the Model Runner content store)")
 	c.Flags().Uint64Var(&opts.contextSize, "context-size", 0, "context size in tokens")
 	return c
@@ -134,6 +147,7 @@ type packageOptions struct {
 	ggufPath         string
 	safetensorsDir   string
 	licensePaths     []string
+	dirTarPaths      []string
 	push             bool
 	tag              string
 }
@@ -210,6 +224,69 @@ func packageModel(cmd *cobra.Command, opts packageOptions) error {
 		cmd.PrintErrf("Adding chat template file from %q\n", opts.chatTemplatePath)
 		if pkg, err = pkg.WithChatTemplateFile(opts.chatTemplatePath); err != nil {
 			return fmt.Errorf("add chat template file from path %q: %w", opts.chatTemplatePath, err)
+		}
+	}
+
+	// Process directory tar archives
+	var tempDirTarFiles []string
+	if len(opts.dirTarPaths) > 0 {
+		// Schedule cleanup of temp tar files
+		defer func() {
+			for _, tempFile := range tempDirTarFiles {
+				os.Remove(tempFile)
+			}
+		}()
+
+		// Determine base directory for resolving relative paths
+		var baseDir string
+		if opts.safetensorsDir != "" {
+			baseDir = opts.safetensorsDir
+		} else {
+			// For GGUF, use the directory containing the GGUF file
+			baseDir = filepath.Dir(opts.ggufPath)
+		}
+
+		for _, relDirPath := range opts.dirTarPaths {
+			// Reject absolute paths
+			if filepath.IsAbs(relDirPath) {
+				return fmt.Errorf("dir-tar path must be relative: %s", relDirPath)
+			}
+
+			// Resolve the full directory path
+			fullDirPath := filepath.Join(baseDir, relDirPath)
+			fullDirPath = filepath.Clean(fullDirPath)
+
+			// Verify the resolved path is within baseDir to prevent directory traversal
+			relPath, err := filepath.Rel(baseDir, fullDirPath)
+			if err != nil {
+				return fmt.Errorf("dir-tar path %q could not be validated: %w", relDirPath, err)
+			}
+			// Check if the relative path tries to escape the base directory
+			if relPath == ".." || len(relPath) >= 3 && relPath[:3] == ".."+string(filepath.Separator) {
+				return fmt.Errorf("dir-tar path %q escapes base directory", relDirPath)
+			}
+
+			// Verify the directory exists
+			info, err := os.Stat(fullDirPath)
+			if err != nil {
+				return fmt.Errorf("cannot access directory %q (resolved from %q): %w", fullDirPath, relDirPath, err)
+			}
+			if !info.IsDir() {
+				return fmt.Errorf("path %q is not a directory", fullDirPath)
+			}
+
+			cmd.PrintErrf("Creating tar archive for directory %q\n", relDirPath)
+			tempTarPath, err := packaging.CreateDirectoryTarArchive(fullDirPath)
+			if err != nil {
+				return fmt.Errorf("create tar archive for directory %q: %w", relDirPath, err)
+			}
+			tempDirTarFiles = append(tempDirTarFiles, tempTarPath)
+
+			cmd.PrintErrf("Adding directory tar archive from %q\n", relDirPath)
+			pkg, err = pkg.WithDirTar(tempTarPath)
+			if err != nil {
+				return fmt.Errorf("add directory tar: %w", err)
+			}
 		}
 	}
 
