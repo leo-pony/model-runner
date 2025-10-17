@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // CreateDirectoryTarArchive creates a temporary tar archive containing the specified directory
@@ -113,4 +114,96 @@ func CreateDirectoryTarArchive(dirPath string) (string, error) {
 
 	shouldKeepTempFile = true
 	return tmpPath, nil
+}
+
+// DirTarProcessor handles processing of directory tar paths for packaging
+type DirTarProcessor struct {
+	dirTarPaths []string
+	baseDir     string
+	tempFiles   []string
+}
+
+// NewDirTarProcessor creates a new processor for directory tar paths
+func NewDirTarProcessor(dirTarPaths []string, baseDir string) *DirTarProcessor {
+	return &DirTarProcessor{
+		dirTarPaths: dirTarPaths,
+		baseDir:     baseDir,
+		tempFiles:   make([]string, 0),
+	}
+}
+
+// Process processes all directory tar paths, validates them, and creates temporary tar archives.
+// Returns a list of temporary tar file paths, cleanup function, and any error encountered.
+// The caller is responsible for adding these tar files to the builder.
+func (p *DirTarProcessor) Process() ([]string, func(), error) {
+	var tarPaths []string
+
+	// Get absolute paths for robust security validation
+	absBase, err := filepath.Abs(p.baseDir)
+	if err != nil {
+		return nil, nil, fmt.Errorf("resolve base directory: %w", err)
+	}
+
+	// Return cleanup function
+	cleanup := func() {
+		for _, tempFile := range p.tempFiles {
+			os.Remove(tempFile)
+		}
+	}
+
+	for _, relDirPath := range p.dirTarPaths {
+		// Reject absolute paths
+		if filepath.IsAbs(relDirPath) {
+			return nil, cleanup, fmt.Errorf("dir-tar path must be relative: %s", relDirPath)
+		}
+
+		// Resolve the full directory path
+		fullDirPath := filepath.Join(p.baseDir, relDirPath)
+		fullDirPath = filepath.Clean(fullDirPath)
+
+		absFull, err := filepath.Abs(fullDirPath)
+		if err != nil {
+			return nil, cleanup, fmt.Errorf("resolve full path: %w", err)
+		}
+
+		// Use filepath.Rel to compute the relative path from base to full
+		// This is the canonical way to check if a path is within another
+		relPathCheck, err := filepath.Rel(absBase, absFull)
+		if err != nil {
+			return nil, cleanup, fmt.Errorf("dir-tar path %q could not be validated: %w", relDirPath, err)
+		}
+
+		// If the relative path starts with ".." as a path component (not just as prefix),
+		// it means absFull is outside absBase. We check for ".." followed by separator
+		// or as the entire path to avoid false positives with directories like "..data"
+		if relPathCheck == ".." || strings.HasPrefix(relPathCheck, ".."+string(os.PathSeparator)) {
+			return nil, cleanup, fmt.Errorf("dir-tar path %q escapes base directory", relDirPath)
+		}
+
+		// Use Lstat (not Stat) to check if the path itself is a symlink
+		// Stat would follow the symlink, but we want to detect symlinks themselves
+		linfo, err := os.Lstat(fullDirPath)
+		if err != nil {
+			return nil, cleanup, fmt.Errorf("cannot access directory %q (resolved from %q): %w", fullDirPath, relDirPath, err)
+		}
+
+		// Reject symlinks to prevent empty tar archives (CreateDirectoryTarArchive skips symlinks)
+		if linfo.Mode()&os.ModeSymlink != 0 {
+			return nil, cleanup, fmt.Errorf("path %q is a symlink; symlinked directories are not supported", relDirPath)
+		}
+
+		// Verify it's a directory
+		if !linfo.IsDir() {
+			return nil, cleanup, fmt.Errorf("path %q is not a directory", fullDirPath)
+		}
+
+		tempTarPath, err := CreateDirectoryTarArchive(fullDirPath)
+		if err != nil {
+			return nil, cleanup, fmt.Errorf("create tar archive for directory %q: %w", relDirPath, err)
+		}
+		p.tempFiles = append(p.tempFiles, tempTarPath)
+		tarPaths = append(tarPaths, tempTarPath)
+	}
+
+	return tarPaths, cleanup, nil
 }
