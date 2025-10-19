@@ -8,17 +8,69 @@ This package supports the Docker Model Runner in Docker Desktop and Docker Engin
 
 ### Installation
 
+### Docker Desktop (macOS and Windows)
+
 For macOS and Windows, install Docker Desktop:
 
 https://docs.docker.com/desktop/
 
-For Linux, install Docker Engine:
+Docker Model Runner is included in Docker Desktop.
+
+### Docker Engine (Linux)
+
+For Linux, install Docker Engine from the official Docker repository:
 
 ```bash
 curl -fsSL https://get.docker.com | sudo bash
 ```
 
-Docker Model Runner is included in the above tools.
+Docker Model Runner is included in Docker Engine when installed from Docker's official repositories.
+
+### Verifying Your Installation
+
+To verify that Docker Model Runner is available:
+
+```bash
+# Check if the Docker CLI plugin is available
+docker model --help
+
+# Check Docker version
+docker version
+
+# Check Docker Model Runner version
+docker model version
+```
+
+If `docker model` is not available, see the troubleshooting section below.
+
+### Troubleshooting: Docker Installation Source
+
+If you encounter errors like `Package 'docker-model-plugin' has no installation candidate` or `docker model` command is not found:
+
+1. **Check your Docker installation source:**
+   ```bash
+   # Check Docker version
+   docker version
+
+   # Check Docker Model Runner version
+   docker model version
+   ```
+   
+   Look for the source in the output. If it shows a package from your distro, you'll need to reinstall from Docker's official repositories.
+
+2. **Remove the distro version and install from Docker's official repository:**
+   ```bash
+   # Remove distro version (Ubuntu/Debian example)
+   sudo apt-get purge docker docker.io containerd runc
+   
+   # Install from Docker's official repository
+   curl -fsSL https://get.docker.com | sudo bash
+   
+   # Verify Docker Model Runner is available
+   docker model --help
+   ```
+
+3. **For NVIDIA DGX systems:** If Docker came pre-installed, verify it's from Docker's official repositories. If not, follow the reinstallation steps above.
 
 For more details refer to:
 
