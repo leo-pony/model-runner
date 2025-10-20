@@ -22,6 +22,7 @@ For Linux, install Docker Engine from the official Docker repository:
 
 ```bash
 curl -fsSL https://get.docker.com | sudo bash
+sudo usermod -aG docker $USER # give user permission to access docker daemon, relogin to take effect
 ```
 
 Docker Model Runner is included in Docker Engine when installed from Docker's official repositories.
