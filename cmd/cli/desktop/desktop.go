@@ -799,8 +799,17 @@ func (c *Client) handleQueryError(err error, path string) error {
 	return fmt.Errorf("error querying %s: %w", path, err)
 }
 
+// normalizeHuggingFaceModelName converts Hugging Face model names to lowercase
+func normalizeHuggingFaceModelName(model string) string {
+	if strings.HasPrefix(model, "hf.co/") {
+		return strings.ToLower(model)
+	}
+
+	return model
+}
+
 func (c *Client) Tag(source, targetRepo, targetTag string) error {
-	source = dmrm.NormalizeModelName(source)
+	source = normalizeHuggingFaceModelName(source)
 	// Check if the source is a model ID, and expand it if necessary
 	if !strings.Contains(strings.Trim(source, "/"), "/") {
 		// Do an extra API call to check if the model parameter might be a model ID

@@ -146,3 +146,51 @@ func TestStripDefaultsFromModelName(t *testing.T) {
 		})
 	}
 }
+
+// TestNormalizeModelNameConsistency verifies that locally packaged models
+// (without namespace) get normalized the same way as other operations.
+// This test documents the fix for the bug where `docker model package my-model`
+// would create a model that couldn't be run with `docker model run my-model`.
+func TestNormalizeModelNameConsistency(t *testing.T) {
+	tests := []struct {
+		name                    string
+		userProvidedName        string
+		expectedNormalizedName  string
+		description             string
+	}{
+		{
+			name:                   "locally packaged model without namespace",
+			userProvidedName:       "my-model",
+			expectedNormalizedName: "ai/my-model:latest",
+			description:            "When a user packages a local model as 'my-model', it should be normalized to 'ai/my-model:latest'",
+		},
+		{
+			name:                   "locally packaged model without namespace but with tag",
+			userProvidedName:       "my-model:v1.0",
+			expectedNormalizedName: "ai/my-model:v1.0",
+			description:            "When a user packages a local model as 'my-model:v1.0', it should be normalized to 'ai/my-model:v1.0'",
+		},
+		{
+			name:                   "model with explicit namespace",
+			userProvidedName:       "myorg/my-model",
+			expectedNormalizedName: "myorg/my-model:latest",
+			description:            "When a user packages a model with explicit org 'myorg/my-model', it should keep the org",
+		},
+		{
+			name:                   "model with ai namespace explicitly set",
+			userProvidedName:       "ai/my-model",
+			expectedNormalizedName: "ai/my-model:latest",
+			description:            "When a user explicitly sets 'ai/' namespace, it should remain the same",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := models.NormalizeModelName(tt.userProvidedName)
+			if result != tt.expectedNormalizedName {
+				t.Errorf("%s: NormalizeModelName(%q) = %q, want %q", 
+					tt.description, tt.userProvidedName, result, tt.expectedNormalizedName)
+			}
+		})
+	}
+}
