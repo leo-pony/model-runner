@@ -70,12 +70,22 @@ func main() {
 
 	memEstimator := memory.NewEstimator(sysMemInfo)
 
+	// Create a proxy-aware HTTP transport
+	// Use a safe type assertion with fallback, and explicitly set Proxy to http.ProxyFromEnvironment
+	var baseTransport *http.Transport
+	if t, ok := http.DefaultTransport.(*http.Transport); ok {
+		baseTransport = t.Clone()
+	} else {
+		baseTransport = &http.Transport{}
+	}
+	baseTransport.Proxy = http.ProxyFromEnvironment
+
 	modelManager := models.NewManager(
 		log,
 		models.ClientConfig{
 			StoreRootPath: modelPath,
 			Logger:        log.WithFields(logrus.Fields{"component": "model-manager"}),
-			Transport:     resumable.New(http.DefaultTransport),
+			Transport:     resumable.New(baseTransport),
 		},
 		nil,
 		memEstimator,
