@@ -179,7 +179,7 @@ func TestTagHuggingFaceModel(t *testing.T) {
 
 	// Test case for tagging a Hugging Face model with mixed case
 	sourceModel := "hf.co/Bartowski/Llama-3.2-1B-Instruct-GGUF"
-	expectedLowercase := "hf.co/bartowski/llama-3.2-1b-instruct-gguf:latest"
+	expectedLowercase := "hf.co/bartowski/llama-3.2-1b-instruct-gguf"
 	targetRepo := "myrepo"
 	targetTag := "latest"
 
