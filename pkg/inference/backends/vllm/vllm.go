@@ -17,6 +17,7 @@ import (
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/inference/models"
 	"github.com/docker/model-runner/pkg/inference/platform"
+	"github.com/docker/model-runner/pkg/internal/utils"
 	"github.com/docker/model-runner/pkg/logging"
 	"github.com/docker/model-runner/pkg/sandbox"
 	"github.com/docker/model-runner/pkg/tailbuffer"
@@ -118,7 +119,12 @@ func (v *vLLM) Run(ctx context.Context, socket, model string, modelRef string, m
 	// Add served model name
 	args = append(args, "--served-model-name", model, modelRef)
 
-	v.log.Infof("vLLM args: %v", args)
+	// Sanitize args for safe logging
+	sanitizedArgs := make([]string, len(args))
+	for i, arg := range args {
+		sanitizedArgs[i] = utils.SanitizeForLog(arg)
+	}
+	v.log.Infof("vLLM args: %v", sanitizedArgs)
 	tailBuf := tailbuffer.NewTailBuffer(1024)
 	serverLogStream := v.serverLog.Writer()
 	out := io.MultiWriter(serverLogStream, tailBuf)

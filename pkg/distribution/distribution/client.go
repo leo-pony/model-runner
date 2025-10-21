@@ -8,11 +8,11 @@ import (
 	"net/http"
 	"slices"
 
+	"github.com/docker/model-runner/pkg/internal/utils"
 	"github.com/sirupsen/logrus"
 
 	"github.com/docker/model-runner/pkg/distribution/internal/progress"
 	"github.com/docker/model-runner/pkg/distribution/internal/store"
-	"github.com/docker/model-runner/pkg/distribution/internal/utils"
 	"github.com/docker/model-runner/pkg/distribution/registry"
 	"github.com/docker/model-runner/pkg/distribution/tarball"
 	"github.com/docker/model-runner/pkg/distribution/types"

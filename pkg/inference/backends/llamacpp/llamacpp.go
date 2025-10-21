@@ -24,6 +24,7 @@ import (
 	"github.com/docker/model-runner/pkg/inference"
 	"github.com/docker/model-runner/pkg/inference/config"
 	"github.com/docker/model-runner/pkg/inference/models"
+	"github.com/docker/model-runner/pkg/internal/utils"
 	"github.com/docker/model-runner/pkg/logging"
 	"github.com/docker/model-runner/pkg/sandbox"
 	"github.com/docker/model-runner/pkg/tailbuffer"
@@ -154,7 +155,12 @@ func (l *llamaCpp) Run(ctx context.Context, socket, model string, _ string, mode
 		return fmt.Errorf("failed to get args for llama.cpp: %w", err)
 	}
 
-	l.log.Infof("llamaCppArgs: %v", args)
+	// Sanitize args for safe logging
+	sanitizedArgs := make([]string, len(args))
+	for i, arg := range args {
+		sanitizedArgs[i] = utils.SanitizeForLog(arg)
+	}
+	l.log.Infof("llamaCppArgs: %v", sanitizedArgs)
 	tailBuf := tailbuffer.NewTailBuffer(1024)
 	serverLogStream := l.serverLog.Writer()
 	out := io.MultiWriter(serverLogStream, tailBuf)
