@@ -93,7 +93,7 @@ func (v *vLLM) Install(_ context.Context, _ *http.Client) error {
 	return nil
 }
 
-func (v *vLLM) Run(ctx context.Context, socket, model string, modelRef string, _ inference.BackendMode, _ *inference.BackendConfiguration) error {
+func (v *vLLM) Run(ctx context.Context, socket, model string, modelRef string, mode inference.BackendMode, backendConfig *inference.BackendConfiguration) error {
 	if !platform.SupportsVLLM() {
 		v.log.Warn("vLLM backend is not yet supported")
 		return errors.New("not implemented")
@@ -109,13 +109,14 @@ func (v *vLLM) Run(ctx context.Context, socket, model string, modelRef string, _
 		v.log.Warnln("vLLM may not be able to start")
 	}
 
-	args := []string{
-		"serve",
-		filepath.Dir(bundle.SafetensorsPath()),
-		"--uds", socket,
-		"--served-model-name", modelRef,
+	// Get arguments from config
+	args, err := v.config.GetArgs(bundle, socket, mode, backendConfig)
+	if err != nil {
+		return fmt.Errorf("failed to get vLLM arguments: %w", err)
 	}
-	// TODO: Add inference.BackendConfiguration.
+
+	// Add served model name
+	args = append(args, "--served-model-name", modelRef)
 
 	v.log.Infof("vLLM args: %v", args)
 	tailBuf := tailbuffer.NewTailBuffer(1024)
