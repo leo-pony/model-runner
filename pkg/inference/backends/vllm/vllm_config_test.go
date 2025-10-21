@@ -51,7 +51,7 @@ func TestGetArgs(t *testing.T) {
 			config: nil,
 			expected: []string{
 				"serve",
-				"/path/to/model",
+				"/path/to",
 				"--uds",
 				"/tmp/socket",
 			},
@@ -66,7 +66,7 @@ func TestGetArgs(t *testing.T) {
 			},
 			expected: []string{
 				"serve",
-				"/path/to/model",
+				"/path/to",
 				"--uds",
 				"/tmp/socket",
 				"--max-model-len",
@@ -83,7 +83,7 @@ func TestGetArgs(t *testing.T) {
 			},
 			expected: []string{
 				"serve",
-				"/path/to/model",
+				"/path/to",
 				"--uds",
 				"/tmp/socket",
 				"--gpu-memory-utilization",
@@ -103,7 +103,7 @@ func TestGetArgs(t *testing.T) {
 			},
 			expected: []string{
 				"serve",
-				"/path/to/model",
+				"/path/to",
 				"--uds",
 				"/tmp/socket",
 				"--max-model-len",

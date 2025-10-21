@@ -2,6 +2,7 @@ package vllm
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 
 	"github.com/docker/model-runner/pkg/distribution/types"
@@ -27,7 +28,7 @@ func (c *Config) GetArgs(bundle types.ModelBundle, socket string, mode inference
 	args := append([]string{}, c.Args...)
 
 	// Add the serve command and model path (use directory for safetensors)
-	modelPath := bundle.SafetensorsPath()
+	modelPath := filepath.Dir(bundle.SafetensorsPath())
 	if modelPath != "" {
 		// vLLM expects the directory containing the safetensors files
 		args = append(args, "serve", modelPath)
