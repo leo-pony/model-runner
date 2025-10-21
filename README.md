@@ -220,6 +220,11 @@ Default values:
 - `LLAMA_SERVER_VERSION`: latest
 - `LLAMA_SERVER_VARIANT`: cpu
 
+Available variants:
+- `cpu`: CPU-optimized version
+- `cuda`: CUDA-accelerated version for NVIDIA GPUs
+- `rocm`: ROCm-accelerated version for AMD GPUs
+
 The binary path in the image follows this pattern: `/com.docker.llama-server.native.linux.${LLAMA_SERVER_VARIANT}.${TARGETARCH}`
 
 ## API Examples

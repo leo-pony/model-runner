@@ -3,6 +3,7 @@ replicaCount: 1
 image:
   repository: docker/model-runner
   pullPolicy: IfNotPresent
+  # Use 'latest', 'latest-cuda', or 'latest-rocm' for different acceleration variants
   tag: "latest"
 
 nameOverride: ""
@@ -24,6 +25,7 @@ gpu:
   vendor: nvidia
   # Number of GPUs to request
   count: 1
+  # For AMD GPUs, ensure you're using a ROCm-enabled image tag (e.g., latest-rocm)
 
 # Ephemeral volume configuration
 storage:
