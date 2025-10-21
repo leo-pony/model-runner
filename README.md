@@ -1,4 +1,5 @@
 # Docker Model Runner
+<img width="2071" height="269" alt="docker-model-runner-white" src="https://github.com/user-attachments/assets/f3b2ed27-ea0e-47d5-8ed0-82ee338f3eae" />
 
 Docker Model Runner (DMR) makes it easy to manage, run, and deploy AI models using Docker. Designed for developers, Docker Model Runner streamlines the process of pulling, running, and serving large language models (LLMs) and other AI models directly from Docker Hub or any OCI-compliant registry.
 
