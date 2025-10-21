@@ -116,7 +116,7 @@ func (v *vLLM) Run(ctx context.Context, socket, model string, modelRef string, m
 	}
 
 	// Add served model name
-	args = append(args, "--served-model-name", modelRef)
+	args = append(args, "--served-model-name", model, modelRef)
 
 	v.log.Infof("vLLM args: %v", args)
 	tailBuf := tailbuffer.NewTailBuffer(1024)
