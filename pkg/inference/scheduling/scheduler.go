@@ -13,9 +13,12 @@ import (
 	"time"
 
 	"github.com/docker/model-runner/pkg/distribution/distribution"
+	"github.com/docker/model-runner/pkg/distribution/types"
 	"github.com/docker/model-runner/pkg/inference"
+	"github.com/docker/model-runner/pkg/inference/backends/vllm"
 	"github.com/docker/model-runner/pkg/inference/memory"
 	"github.com/docker/model-runner/pkg/inference/models"
+	"github.com/docker/model-runner/pkg/internal/utils"
 	"github.com/docker/model-runner/pkg/logging"
 	"github.com/docker/model-runner/pkg/metrics"
 	"github.com/docker/model-runner/pkg/middleware"
@@ -181,26 +184,6 @@ func (s *Scheduler) handleOpenAIInference(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Wait for the corresponding backend installation to complete or fail. We
-	// don't allow any requests to be scheduled for a backend until it has
-	// completed installation.
-	if err := s.installer.wait(r.Context(), backend.Name()); err != nil {
-		if errors.Is(err, ErrBackendNotFound) {
-			http.Error(w, err.Error(), http.StatusNotFound)
-		} else if errors.Is(err, errInstallerNotStarted) {
-			http.Error(w, err.Error(), http.StatusServiceUnavailable)
-		} else if errors.Is(err, context.Canceled) {
-			// This could be due to the client aborting the request (in which
-			// case this response will be ignored) or the inference service
-			// shutting down (since that will also cancel the request context).
-			// Either way, provide a response, even if it's ignored.
-			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
-		} else {
-			http.Error(w, fmt.Errorf("backend installation failed: %w", err).Error(), http.StatusServiceUnavailable)
-		}
-		return
-	}
-
 	// Determine the backend operation mode.
 	backendMode, ok := backendModeForRequest(r.URL.Path)
 	if !ok {
@@ -232,6 +215,42 @@ func (s *Scheduler) handleOpenAIInference(w http.ResponseWriter, r *http.Request
 		}
 		// Non-blocking call to track the model usage.
 		s.tracker.TrackModel(model, r.UserAgent(), "inference/"+backendMode.String())
+
+		// Automatically identify models for vLLM.
+		config, err := model.Config()
+		if err != nil {
+			s.log.Warnln("failed to fetch model config:", err)
+		} else {
+			if config.Format == types.FormatSafetensors {
+				if vllmBackend, ok := s.backends[vllm.Name]; ok {
+					backend = vllmBackend
+				} else {
+					s.log.Warnf("Model %s is in safetensors format but vLLM backend is not available. "+
+						"Backend %s may not support this format and could fail at runtime.",
+						utils.SanitizeForLog(request.Model), backend.Name())
+				}
+			}
+		}
+	}
+
+	// Wait for the corresponding backend installation to complete or fail. We
+	// don't allow any requests to be scheduled for a backend until it has
+	// completed installation.
+	if err := s.installer.wait(r.Context(), backend.Name()); err != nil {
+		if errors.Is(err, ErrBackendNotFound) {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		} else if errors.Is(err, errInstallerNotStarted) {
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		} else if errors.Is(err, context.Canceled) {
+			// This could be due to the client aborting the request (in which
+			// case this response will be ignored) or the inference service
+			// shutting down (since that will also cancel the request context).
+			// Either way, provide a response, even if it's ignored.
+			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+		} else {
+			http.Error(w, fmt.Errorf("backend installation failed: %w", err).Error(), http.StatusServiceUnavailable)
+		}
+		return
 	}
 
 	modelID := s.modelManager.ResolveModelID(request.Model)
