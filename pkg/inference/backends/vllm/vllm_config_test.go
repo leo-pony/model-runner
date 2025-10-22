@@ -38,11 +38,21 @@ func (m *mockModelBundle) RootDir() string {
 
 func TestGetArgs(t *testing.T) {
 	tests := []struct {
-		name     string
-		config   *inference.BackendConfiguration
-		bundle   *mockModelBundle
-		expected []string
+		name        string
+		config      *inference.BackendConfiguration
+		bundle      *mockModelBundle
+		expected    []string
+		expectError bool
 	}{
+		{
+			name: "empty safetensors path should error",
+			bundle: &mockModelBundle{
+				safetensorsPath: "",
+			},
+			config:      nil,
+			expected:    nil,
+			expectError: true,
+		},
 		{
 			name: "basic args without context size",
 			bundle: &mockModelBundle{
@@ -116,6 +126,14 @@ func TestGetArgs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			config := NewDefaultVLLMConfig()
 			args, err := config.GetArgs(tt.bundle, "/tmp/socket", inference.BackendModeCompletion, tt.config)
+
+			if tt.expectError {
+				if err == nil {
+					t.Fatalf("expected error but got none")
+				}
+				return
+			}
+
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

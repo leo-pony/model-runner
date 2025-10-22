@@ -28,13 +28,13 @@ func (c *Config) GetArgs(bundle types.ModelBundle, socket string, mode inference
 	args := append([]string{}, c.Args...)
 
 	// Add the serve command and model path (use directory for safetensors)
-	modelPath := filepath.Dir(bundle.SafetensorsPath())
-	if modelPath != "" {
-		// vLLM expects the directory containing the safetensors files
-		args = append(args, "serve", modelPath)
-	} else {
+	safetensorsPath := bundle.SafetensorsPath()
+	if safetensorsPath == "" {
 		return nil, fmt.Errorf("safetensors path required by vLLM backend")
 	}
+	modelPath := filepath.Dir(safetensorsPath)
+	// vLLM expects the directory containing the safetensors files
+	args = append(args, "serve", modelPath)
 
 	// Add socket arguments
 	args = append(args, "--uds", socket)
