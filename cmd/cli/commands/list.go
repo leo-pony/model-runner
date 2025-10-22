@@ -19,33 +19,19 @@ import (
 
 func newListCmd() *cobra.Command {
 	var jsonFormat, openai, quiet bool
-	var backend string
 	c := &cobra.Command{
 		Use:     "list [OPTIONS]",
 		Aliases: []string{"ls"},
 		Short:   "List the models pulled to your local environment",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Validate backend if specified
-			if backend != "" {
-				if err := validateBackend(backend); err != nil {
-					return err
-				}
-			}
-
-			if (backend == "openai" || openai) && quiet {
+			if openai && quiet {
 				return fmt.Errorf("--quiet flag cannot be used with --openai flag or OpenAI backend")
-			}
-
-			// Validate API key for OpenAI backend
-			apiKey, err := ensureAPIKey(backend)
-			if err != nil {
-				return err
 			}
 
 			// If we're doing an automatic install, only show the installation
 			// status if it won't corrupt machine-readable output.
 			var standaloneInstallPrinter standalone.StatusPrinter
-			if !jsonFormat && !openai && !quiet && backend == "" {
+			if !jsonFormat && !openai && !quiet {
 				standaloneInstallPrinter = cmd
 			}
 			if _, err := ensureStandaloneRunnerAvailable(cmd.Context(), standaloneInstallPrinter); err != nil {
@@ -55,7 +41,7 @@ func newListCmd() *cobra.Command {
 			if len(args) > 0 {
 				modelFilter = args[0]
 			}
-			models, err := listModels(openai, backend, desktopClient, quiet, jsonFormat, apiKey, modelFilter)
+			models, err := listModels(openai, desktopClient, quiet, jsonFormat, modelFilter)
 			if err != nil {
 				return err
 			}
@@ -67,14 +53,12 @@ func newListCmd() *cobra.Command {
 	c.Flags().BoolVar(&jsonFormat, "json", false, "List models in a JSON format")
 	c.Flags().BoolVar(&openai, "openai", false, "List models in an OpenAI format")
 	c.Flags().BoolVarP(&quiet, "quiet", "q", false, "Only show model IDs")
-	c.Flags().StringVar(&backend, "backend", "", fmt.Sprintf("Specify the backend to use (%s)", ValidBackendsKeys()))
-	c.Flags().MarkHidden("backend")
 	return c
 }
 
-func listModels(openai bool, backend string, desktopClient *desktop.Client, quiet bool, jsonFormat bool, apiKey string, modelFilter string) (string, error) {
-	if openai || backend == "openai" {
-		models, err := desktopClient.ListOpenAI(backend, apiKey)
+func listModels(openai bool, desktopClient *desktop.Client, quiet bool, jsonFormat bool, modelFilter string) (string, error) {
+	if openai {
+		models, err := desktopClient.ListOpenAI()
 		if err != nil {
 			err = handleClientError(err, "Failed to list models")
 			return "", handleNotRunningError(err)

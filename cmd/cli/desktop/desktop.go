@@ -24,8 +24,6 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-const DefaultBackend = "llama.cpp"
-
 var (
 	ErrNotFound           = errors.New("model not found")
 	ErrServiceUnavailable = errors.New("service unavailable")
@@ -233,32 +231,18 @@ func (c *Client) List() ([]dmrm.Model, error) {
 	return modelsJson, nil
 }
 
-func (c *Client) ListOpenAI(backend, apiKey string) (dmrm.OpenAIModelList, error) {
-	if backend == "" {
-		backend = DefaultBackend
-	}
-	modelsRoute := fmt.Sprintf("%s/%s/v1/models", inference.InferencePrefix, backend)
-
-	// Use doRequestWithAuth to support API key authentication
-	resp, err := c.doRequestWithAuth(http.MethodGet, modelsRoute, nil, "openai", apiKey)
+func (c *Client) ListOpenAI() (dmrm.OpenAIModelList, error) {
+	modelsRoute := inference.InferencePrefix + "/v1/models"
+	body, err := c.listRaw(modelsRoute, "")
 	if err != nil {
-		return dmrm.OpenAIModelList{}, c.handleQueryError(err, modelsRoute)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return dmrm.OpenAIModelList{}, fmt.Errorf("failed to list models: %s", resp.Status)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return dmrm.OpenAIModelList{}, fmt.Errorf("failed to read response body: %w", err)
+		return dmrm.OpenAIModelList{}, err
 	}
 
 	var modelsJson dmrm.OpenAIModelList
 	if err := json.Unmarshal(body, &modelsJson); err != nil {
 		return modelsJson, fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
+
 	return modelsJson, nil
 }
 
@@ -357,12 +341,12 @@ func (c *Client) fullModelID(id string) (string, error) {
 }
 
 // Chat performs a chat request and streams the response content with selective markdown rendering.
-func (c *Client) Chat(backend, model, prompt, apiKey string, imageURLs []string, outputFunc func(string), shouldUseMarkdown bool) error {
-	return c.ChatWithContext(context.Background(), backend, model, prompt, apiKey, imageURLs, outputFunc, shouldUseMarkdown)
+func (c *Client) Chat(model, prompt string, imageURLs []string, outputFunc func(string), shouldUseMarkdown bool) error {
+	return c.ChatWithContext(context.Background(), model, prompt, imageURLs, outputFunc, shouldUseMarkdown)
 }
 
 // ChatWithContext performs a chat request with context support for cancellation and streams the response content with selective markdown rendering.
-func (c *Client) ChatWithContext(ctx context.Context, backend, model, prompt, apiKey string, imageURLs []string, outputFunc func(string), shouldUseMarkdown bool) error {
+func (c *Client) ChatWithContext(ctx context.Context, model, prompt string, imageURLs []string, outputFunc func(string), shouldUseMarkdown bool) error {
 	model = dmrm.NormalizeModelName(model)
 	if !strings.Contains(strings.Trim(model, "/"), "/") {
 		// Do an extra API call to check if the model parameter isn't a model ID.
@@ -417,20 +401,13 @@ func (c *Client) ChatWithContext(ctx context.Context, backend, model, prompt, ap
 		return fmt.Errorf("error marshaling request: %w", err)
 	}
 
-	var completionsPath string
-	if backend != "" {
-		completionsPath = inference.InferencePrefix + "/" + backend + "/v1/chat/completions"
-	} else {
-		completionsPath = inference.InferencePrefix + "/v1/chat/completions"
-	}
+	completionsPath := inference.InferencePrefix + "/v1/chat/completions"
 
 	resp, err := c.doRequestWithAuthContext(
 		ctx,
 		http.MethodPost,
 		completionsPath,
 		bytes.NewReader(jsonData),
-		backend,
-		apiKey,
 	)
 	if err != nil {
 		return c.handleQueryError(err, completionsPath)
@@ -785,15 +762,15 @@ func (c *Client) Requests(modelFilter string, streaming bool, includeExisting bo
 
 // doRequest is a helper function that performs HTTP requests and handles 503 responses
 func (c *Client) doRequest(method, path string, body io.Reader) (*http.Response, error) {
-	return c.doRequestWithAuth(method, path, body, "", "")
+	return c.doRequestWithAuth(method, path, body)
 }
 
 // doRequestWithAuth is a helper function that performs HTTP requests with optional authentication
-func (c *Client) doRequestWithAuth(method, path string, body io.Reader, backend, apiKey string) (*http.Response, error) {
-	return c.doRequestWithAuthContext(context.Background(), method, path, body, backend, apiKey)
+func (c *Client) doRequestWithAuth(method, path string, body io.Reader) (*http.Response, error) {
+	return c.doRequestWithAuthContext(context.Background(), method, path, body)
 }
 
-func (c *Client) doRequestWithAuthContext(ctx context.Context, method, path string, body io.Reader, backend, apiKey string) (*http.Response, error) {
+func (c *Client) doRequestWithAuthContext(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, c.modelRunner.URL(path), body)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
@@ -803,11 +780,6 @@ func (c *Client) doRequestWithAuthContext(ctx context.Context, method, path stri
 	}
 
 	req.Header.Set("User-Agent", "docker-model-cli/"+Version)
-
-	// Add Authorization header for OpenAI backend
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-	}
 
 	resp, err := c.modelRunner.Client().Do(req)
 	if err != nil {
