@@ -64,6 +64,8 @@ type BackendStatus struct {
 	Mode string `json:"mode"`
 	// LastUsed represents when this (backend, model, mode) tuple was last used
 	LastUsed time.Time `json:"last_used,omitempty"`
+	// InUse indicates whether this backend is currently handling a request
+	InUse bool `json:"in_use,omitempty"`
 }
 
 // DiskUsage represents the disk usage of the models and default backend.
