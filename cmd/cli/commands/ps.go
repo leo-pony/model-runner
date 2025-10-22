@@ -58,11 +58,21 @@ func psTable(ps []desktop.BackendStatus) string {
 			// Strip default "ai/" prefix and ":latest" tag for display
 			modelName = stripDefaultsFromModelName(modelName)
 		}
+
+		lastUsed := "in use"
+		if !status.LastUsed.IsZero() {
+			duration := time.Since(status.LastUsed)
+			if duration < 0 {
+				duration = 0
+			}
+			lastUsed = units.HumanDuration(duration) + " ago"
+		}
+
 		table.Append([]string{
 			modelName,
 			status.BackendName,
 			status.Mode,
-			units.HumanDuration(time.Since(status.LastUsed)) + " ago",
+			lastUsed,
 		})
 	}
 
