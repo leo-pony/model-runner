@@ -181,8 +181,8 @@ func run(
 	// Start the backend run loop.
 	go func() {
 		if err := backend.Run(runCtx, socket, modelID, modelRef, mode, runnerConfig); err != nil {
-			log.Warnf("Backend %s running modelID %s exited with error: %v",
-				backend.Name(), modelID, err,
+			log.Warnf("Backend %s running model %s exited with error: %v",
+				backend.Name(), modelRef, err,
 			)
 			r.err = err
 		}

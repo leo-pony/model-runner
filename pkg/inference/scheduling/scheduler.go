@@ -223,6 +223,10 @@ func (s *Scheduler) handleOpenAIInference(w http.ResponseWriter, r *http.Request
 			if config.Format == types.FormatSafetensors {
 				if vllmBackend, ok := s.backends[vllm.Name]; ok {
 					backend = vllmBackend
+				} else {
+					s.log.Warnf("Model %s is in safetensors format but vLLM backend is not available. "+
+						"Backend %s may not support this format and could fail at runtime.",
+						request.Model, backend.Name())
 				}
 			}
 		}
