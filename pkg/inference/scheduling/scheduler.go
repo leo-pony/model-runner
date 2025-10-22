@@ -18,6 +18,7 @@ import (
 	"github.com/docker/model-runner/pkg/inference/backends/vllm"
 	"github.com/docker/model-runner/pkg/inference/memory"
 	"github.com/docker/model-runner/pkg/inference/models"
+	"github.com/docker/model-runner/pkg/internal/utils"
 	"github.com/docker/model-runner/pkg/logging"
 	"github.com/docker/model-runner/pkg/metrics"
 	"github.com/docker/model-runner/pkg/middleware"
@@ -226,7 +227,7 @@ func (s *Scheduler) handleOpenAIInference(w http.ResponseWriter, r *http.Request
 				} else {
 					s.log.Warnf("Model %s is in safetensors format but vLLM backend is not available. "+
 						"Backend %s may not support this format and could fail at runtime.",
-						request.Model, backend.Name())
+						utils.SanitizeForLog(request.Model), backend.Name())
 				}
 			}
 		}
