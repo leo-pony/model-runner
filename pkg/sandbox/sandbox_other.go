@@ -49,7 +49,7 @@ func Create(ctx context.Context, configuration string, modifier func(*exec.Cmd),
 	// Start the process.
 	if err := command.Start(); err != nil {
 		cancel()
-		return nil, fmt.Errorf("unable to start process: %w", err)
+		return nil, fmt.Errorf("unable to start process: name: '%s' arg: '%q' err: %w", name, arg, err)
 	}
 	return &sandbox{
 		cancel:  cancel,
