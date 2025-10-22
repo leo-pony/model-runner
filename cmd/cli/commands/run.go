@@ -87,7 +87,7 @@ func readMultilineInput(cmd *cobra.Command, scanner *bufio.Scanner) (string, err
 }
 
 // generateInteractiveWithReadline provides an enhanced interactive mode with readline support
-func generateInteractiveWithReadline(cmd *cobra.Command, desktopClient *desktop.Client, backend, model, apiKey string) error {
+func generateInteractiveWithReadline(cmd *cobra.Command, desktopClient *desktop.Client, model string) error {
 	usage := func() {
 		fmt.Fprintln(os.Stderr, "Available Commands:")
 		fmt.Fprintln(os.Stderr, "  /bye            Exit")
@@ -122,7 +122,7 @@ func generateInteractiveWithReadline(cmd *cobra.Command, desktopClient *desktop.
 	})
 	if err != nil {
 		// Fall back to basic input mode if readline initialization fails
-		return generateInteractiveBasic(cmd, desktopClient, backend, model, apiKey)
+		return generateInteractiveBasic(cmd, desktopClient, model)
 	}
 
 	// Disable history if the environment variable is set
@@ -221,7 +221,7 @@ func generateInteractiveWithReadline(cmd *cobra.Command, desktopClient *desktop.
 				}
 			}()
 
-			err := chatWithMarkdownContext(chatCtx, cmd, desktopClient, backend, model, userInput, apiKey)
+			err := chatWithMarkdownContext(chatCtx, cmd, desktopClient, model, userInput)
 
 			// Clean up signal handler
 			signal.Stop(sigChan)
@@ -246,7 +246,7 @@ func generateInteractiveWithReadline(cmd *cobra.Command, desktopClient *desktop.
 }
 
 // generateInteractiveBasic provides a basic interactive mode (fallback)
-func generateInteractiveBasic(cmd *cobra.Command, desktopClient *desktop.Client, backend, model, apiKey string) error {
+func generateInteractiveBasic(cmd *cobra.Command, desktopClient *desktop.Client, model string) error {
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		userInput, err := readMultilineInput(cmd, scanner)
@@ -282,7 +282,7 @@ func generateInteractiveBasic(cmd *cobra.Command, desktopClient *desktop.Client,
 			}
 		}()
 
-		err = chatWithMarkdownContext(chatCtx, cmd, desktopClient, backend, model, userInput, apiKey)
+		err = chatWithMarkdownContext(chatCtx, cmd, desktopClient, model, userInput)
 
 		cancelChat()
 		signal.Stop(sigChan)
@@ -484,12 +484,12 @@ func renderMarkdown(content string) (string, error) {
 }
 
 // chatWithMarkdown performs chat and streams the response with selective markdown rendering.
-func chatWithMarkdown(cmd *cobra.Command, client *desktop.Client, backend, model, prompt, apiKey string) error {
-	return chatWithMarkdownContext(cmd.Context(), cmd, client, backend, model, prompt, apiKey)
+func chatWithMarkdown(cmd *cobra.Command, client *desktop.Client, model, prompt string) error {
+	return chatWithMarkdownContext(cmd.Context(), cmd, client, model, prompt)
 }
 
 // chatWithMarkdownContext performs chat with context support and streams the response with selective markdown rendering.
-func chatWithMarkdownContext(ctx context.Context, cmd *cobra.Command, client *desktop.Client, backend, model, prompt, apiKey string) error {
+func chatWithMarkdownContext(ctx context.Context, cmd *cobra.Command, client *desktop.Client, model, prompt string) error {
 	colorMode, _ := cmd.Flags().GetString("color")
 	useMarkdown := shouldUseMarkdown(colorMode)
 	debug, _ := cmd.Flags().GetBool("debug")
@@ -504,7 +504,7 @@ func chatWithMarkdownContext(ctx context.Context, cmd *cobra.Command, client *de
 
 	if !useMarkdown {
 		// Simple case: just stream as plain text
-		return client.ChatWithContext(ctx, backend, model, prompt, apiKey, imageURLs, func(content string) {
+		return client.ChatWithContext(ctx, model, prompt, imageURLs, func(content string) {
 			cmd.Print(content)
 		}, false)
 	}
@@ -512,7 +512,7 @@ func chatWithMarkdownContext(ctx context.Context, cmd *cobra.Command, client *de
 	// For markdown: use streaming buffer to render code blocks as they complete
 	markdownBuffer := NewStreamingMarkdownBuffer()
 
-	err = client.ChatWithContext(ctx, backend, model, prompt, apiKey, imageURLs, func(content string) {
+	err = client.ChatWithContext(ctx, model, prompt, imageURLs, func(content string) {
 		// Use the streaming markdown buffer to intelligently render content
 		rendered, err := markdownBuffer.AddContent(content, true)
 		if err != nil {
@@ -539,7 +539,6 @@ func chatWithMarkdownContext(ctx context.Context, cmd *cobra.Command, client *de
 
 func newRunCmd() *cobra.Command {
 	var debug bool
-	var backend string
 	var ignoreRuntimeMemoryCheck bool
 	var colorMode string
 	var detach bool
@@ -557,19 +556,6 @@ func newRunCmd() *cobra.Command {
 			}
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Validate backend if specified
-			if backend != "" {
-				if err := validateBackend(backend); err != nil {
-					return err
-				}
-			}
-
-			// Validate API key for OpenAI backend
-			apiKey, err := ensureAPIKey(backend)
-			if err != nil {
-				return err
-			}
-
 			// Normalize model name to add default org and tag if missing
 			model := models.NormalizeModelName(args[0])
 			prompt := ""
@@ -607,24 +593,21 @@ func newRunCmd() *cobra.Command {
 				return fmt.Errorf("unable to initialize standalone model runner: %w", err)
 			}
 
-			// Do not validate the model in case of using OpenAI's backend, let OpenAI handle it
-			if backend != "openai" {
-				_, err := desktopClient.Inspect(model, false)
-				if err != nil {
-					if !errors.Is(err, desktop.ErrNotFound) {
-						return handleNotRunningError(handleClientError(err, "Failed to inspect model"))
-					}
-					cmd.Println("Unable to find model '" + model + "' locally. Pulling from the server.")
-					if err := pullModel(cmd, desktopClient, model, ignoreRuntimeMemoryCheck); err != nil {
-						return err
-					}
+			_, err := desktopClient.Inspect(model, false)
+			if err != nil {
+				if !errors.Is(err, desktop.ErrNotFound) {
+					return handleNotRunningError(handleClientError(err, "Failed to inspect model"))
+				}
+				cmd.Println("Unable to find model '" + model + "' locally. Pulling from the server.")
+				if err := pullModel(cmd, desktopClient, model, ignoreRuntimeMemoryCheck); err != nil {
+					return err
 				}
 			}
 
 			// Handle --detach flag: just load the model without interaction
 			if detach {
 				// Make a minimal request to load the model into memory
-				err := desktopClient.Chat(backend, model, "", apiKey, nil, func(content string) {
+				err := desktopClient.Chat(model, "", nil, func(content string) {
 					// Silently discard output in detach mode
 				}, false)
 				if err != nil {
@@ -637,7 +620,7 @@ func newRunCmd() *cobra.Command {
 			}
 
 			if prompt != "" {
-				if err := chatWithMarkdown(cmd, desktopClient, backend, model, prompt, apiKey); err != nil {
+				if err := chatWithMarkdown(cmd, desktopClient, model, prompt); err != nil {
 					return handleClientError(err, "Failed to generate a response")
 				}
 				cmd.Println()
@@ -646,11 +629,11 @@ func newRunCmd() *cobra.Command {
 
 			// Use enhanced readline-based interactive mode when terminal is available
 			if term.IsTerminal(int(os.Stdin.Fd())) {
-				return generateInteractiveWithReadline(cmd, desktopClient, backend, model, apiKey)
+				return generateInteractiveWithReadline(cmd, desktopClient, model)
 			}
 
 			// Fall back to basic mode if not a terminal
-			return generateInteractiveBasic(cmd, desktopClient, backend, model, apiKey)
+			return generateInteractiveBasic(cmd, desktopClient, model)
 		},
 		ValidArgsFunction: completion.ModelNames(getDesktopClient, 1),
 	}
@@ -667,8 +650,6 @@ func newRunCmd() *cobra.Command {
 	}
 
 	c.Flags().BoolVar(&debug, "debug", false, "Enable debug logging")
-	c.Flags().StringVar(&backend, "backend", "", fmt.Sprintf("Specify the backend to use (%s)", ValidBackendsKeys()))
-	c.Flags().MarkHidden("backend")
 	c.Flags().BoolVar(&ignoreRuntimeMemoryCheck, "ignore-runtime-memory-check", false, "Do not block pull if estimated runtime memory for model exceeds system resources.")
 	c.Flags().StringVar(&colorMode, "color", "auto", "Use colored output (auto|yes|no)")
 	c.Flags().BoolVarP(&detach, "detach", "d", false, "Load the model in the background without interaction")

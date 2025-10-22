@@ -10,15 +10,6 @@ usage: docker model run MODEL [PROMPT]
 pname: docker model
 plink: docker_model.yaml
 options:
-    - option: backend
-      value_type: string
-      description: Specify the backend to use (llama.cpp, openai, vllm)
-      deprecated: false
-      hidden: true
-      experimental: false
-      experimentalcli: false
-      kubernetes: false
-      swarm: false
     - option: color
       value_type: string
       default_value: auto
