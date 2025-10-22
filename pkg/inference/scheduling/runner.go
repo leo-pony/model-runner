@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/docker/model-runner/pkg/inference"
+	"github.com/docker/model-runner/pkg/internal/utils"
 	"github.com/docker/model-runner/pkg/logging"
 	"github.com/docker/model-runner/pkg/metrics"
 )
@@ -182,7 +183,7 @@ func run(
 	go func() {
 		if err := backend.Run(runCtx, socket, modelID, modelRef, mode, runnerConfig); err != nil {
 			log.Warnf("Backend %s running model %s exited with error: %v",
-				backend.Name(), modelRef, err,
+				backend.Name(), utils.SanitizeForLog(modelRef), err,
 			)
 			r.err = err
 		}
