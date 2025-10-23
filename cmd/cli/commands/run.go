@@ -93,8 +93,13 @@ func generateInteractiveWithReadline(cmd *cobra.Command, desktopClient *desktop.
 		fmt.Fprintln(os.Stderr, "  /bye            Exit")
 		fmt.Fprintln(os.Stderr, "  /?, /help       Help for a command")
 		fmt.Fprintln(os.Stderr, "  /? shortcuts    Help for keyboard shortcuts")
+		fmt.Fprintln(os.Stderr, "  /? files        Help for file inclusion with @ symbol")
 		fmt.Fprintln(os.Stderr, "")
 		fmt.Fprintln(os.Stderr, `Use """ to begin a multi-line message.`)
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "File Inclusion:")
+		fmt.Fprintln(os.Stderr, "  Type @ followed by a filename to include its content in your prompt")
+		fmt.Fprintln(os.Stderr, "  Examples: @README.md, @./src/main.go, @/path/to/file.txt")
 		fmt.Fprintln(os.Stderr, "")
 	}
 
@@ -111,6 +116,20 @@ func generateInteractiveWithReadline(cmd *cobra.Command, desktopClient *desktop.
 		fmt.Fprintln(os.Stderr, "  Ctrl + l            Clear the screen")
 		fmt.Fprintln(os.Stderr, "  Ctrl + c            Stop the model from responding")
 		fmt.Fprintln(os.Stderr, "  Ctrl + d            Exit (/bye)")
+		fmt.Fprintln(os.Stderr, "")
+	}
+
+	usageFiles := func() {
+		fmt.Fprintln(os.Stderr, "File Inclusion with @ symbol:")
+		fmt.Fprintln(os.Stderr, "  Type @ followed by a filename to include its content in your prompt")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "  Examples:")
+		fmt.Fprintln(os.Stderr, "    @README.md          Include content of README.md from current directory")
+		fmt.Fprintln(os.Stderr, "    @./src/main.go     Include content of main.go from ./src/ directory")
+		fmt.Fprintln(os.Stderr, "    @/full/path/file   Include content of file using absolute path")
+		fmt.Fprintln(os.Stderr, "    @\"file with spaces.txt\" Include content of file with spaces in name")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "  The file content will be embedded in your prompt when you press Enter.")
 		fmt.Fprintln(os.Stderr, "")
 	}
 
@@ -135,6 +154,9 @@ func generateInteractiveWithReadline(cmd *cobra.Command, desktopClient *desktop.
 
 	var sb strings.Builder
 	var multiline bool
+
+	// Add a helper function to handle file inclusion when @ is pressed
+	// We'll implement a basic version here that shows a message when @ is pressed
 
 	for {
 		line, err := scanner.Readline()
@@ -186,6 +208,8 @@ func generateInteractiveWithReadline(cmd *cobra.Command, desktopClient *desktop.
 				switch args[1] {
 				case "shortcut", "shortcuts":
 					usageShortcuts()
+				case "file", "files":
+					usageFiles()
 				default:
 					usage()
 				}
@@ -493,6 +517,12 @@ func chatWithMarkdownContext(ctx context.Context, cmd *cobra.Command, client *de
 	colorMode, _ := cmd.Flags().GetString("color")
 	useMarkdown := shouldUseMarkdown(colorMode)
 	debug, _ := cmd.Flags().GetBool("debug")
+
+	// Process file inclusions first (files referenced with @ symbol)
+	prompt, err := processFileInclusions(prompt)
+	if err != nil {
+		return fmt.Errorf("failed to process file inclusions: %w", err)
+	}
 
 	var imageURLs []string
 	cleanedPrompt, imgs, err := processImagesInPrompt(prompt)
