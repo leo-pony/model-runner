@@ -1,14 +1,16 @@
 # syntax=docker/dockerfile:1
 
-ARG CANN_VERSION=8.0.0-910b
-ARG CANN_IMAGE_VARIANT=openeuler22.03
+ARG CANN_VERSION=8.2.rc2-910b
+ARG CANN_IMAGE_VARIANT=ubuntu22.04
 
-FROM quay.io/ascend/cann:{CANN_VERSION}-{CANN_IMAGE_VARIANT}-py3.10 AS builder
+FROM quay.io/ascend/cann:${CANN_VERSION}-${CANN_IMAGE_VARIANT}-py3.11 AS builder
+# docker pull quay.io/ascend/cann:8.2.rc2
+# 8.2.rc2-910b-ubuntu22.04-py3.11
 
 ARG TARGETARCH
 ARG CANN_IMAGE_VARIANT
 
-RUN apt-get update && apt-get install -y cmake ninja-build git build-essential curl
+RUN dnf update && dnf install -y cmake ninja-build git build-essential curl
 
 WORKDIR /llama-server
 
