@@ -68,6 +68,10 @@ jobs:
           echo "docker/model-runner:${{ inputs.releaseTag }}-vllm-cuda" >> "$GITHUB_OUTPUT"
           if [ "${{ inputs.pushLatest }}" == "true" ]; then
             echo "docker/model-runner:latest-vllm-cuda" >> "$GITHUB_OUTPUT"
+          echo "rocm<<EOF" >> "$GITHUB_OUTPUT"
+          echo "docker/model-runner:${{ inputs.releaseTag }}-rocm" >> "$GITHUB_OUTPUT"
+          if [ "${{ inputs.pushLatest }}" == "true" ]; then
+            echo "docker/model-runner:latest-rocm" >> "$GITHUB_OUTPUT"
           fi
           echo 'EOF' >> "$GITHUB_OUTPUT"
 
@@ -127,4 +131,18 @@ jobs:
           push: true
           sbom: true
           provenance: mode=max
-          tags: ${{ steps.tags.outputs.vllm-cuda }}
+
+      - name: Build ROCm image
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
+        with:
+          file: Dockerfile
+          target: final-llamacpp
+          platforms: linux/amd64
+          build-args: |
+            "LLAMA_SERVER_VERSION=${{ inputs.llamaServerVersion }}"
+            "LLAMA_SERVER_VARIANT=rocm"
+            "BASE_IMAGE=rocm/ubuntu:22.04"
+          push: true
+          sbom: true
+          provenance: mode=max
+          tags: ${{ steps.tags.outputs.rocm }}

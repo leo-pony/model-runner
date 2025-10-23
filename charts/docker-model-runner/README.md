@@ -44,11 +44,18 @@ modelInit:
   models:
     - "ai/smollm2:latest"
 
+# Image configuration
+image:
+  repository: docker/model-runner
+  tag: "latest"  # Use 'latest-cuda' for NVIDIA or 'latest-rocm' for AMD GPUs
+  pullPolicy: IfNotPresent
+
 # GPU configuration
 gpu:
   enabled: false
   vendor: nvidia  # or amd
   count: 1
+  # For AMD GPUs, use 'latest-rocm' image tag
 
 # NodePort configuration
 nodePort:

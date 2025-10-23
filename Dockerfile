@@ -6,6 +6,7 @@ ARG LLAMA_SERVER_VARIANT=cpu
 ARG LLAMA_BINARY_PATH=/com.docker.llama-server.native.linux.${LLAMA_SERVER_VARIANT}.${TARGETARCH}
 
 # only 25.10 for cpu variant for max hardware support with vulkan
+# use 22.04 for gpu variants to match ROCm/CUDA base images
 ARG BASE_IMAGE=ubuntu:25.10
 
 FROM docker.io/library/golang:${GO_VERSION}-bookworm AS builder
