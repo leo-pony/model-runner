@@ -230,7 +230,7 @@ func CreateControllerContainer(ctx context.Context, dockerClient *client.Client,
 	if doNotTrack {
 		env = append(env, "DO_NOT_TRACK=1")
 	}
-	
+
 	// Pass proxy environment variables to the container if they are set
 	proxyEnvVars := []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy"}
 	for _, proxyVar := range proxyEnvVars {
@@ -284,6 +284,10 @@ func CreateControllerContainer(ctx context.Context, dockerClient *client.Client,
 			hostConfig.Runtime = "rocm"
 		}
 		// ROCm devices are handled via device paths (/dev/kfd, /dev/dri) which are already added below
+	} else if gpu == gpupkg.GPUSupportMUSA {
+		if ok, err := gpupkg.HasMTHREADSRuntime(ctx, dockerClient); err == nil && ok {
+			hostConfig.Runtime = "mthreads"
+		}
 	}
 
 	// devicePaths contains glob patterns for common AI accelerator device files.
