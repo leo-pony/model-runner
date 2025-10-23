@@ -319,6 +319,7 @@ func (s *Scheduler) getLoaderStatus(ctx context.Context) []BackendStatus {
 				ModelName:   runnerInfo.modelRef,
 				Mode:        key.mode.String(),
 				LastUsed:    time.Time{},
+				InUse:       s.loader.references[runnerInfo.slot] > 0,
 			}
 
 			if s.loader.references[runnerInfo.slot] == 0 {

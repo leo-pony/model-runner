@@ -59,13 +59,22 @@ func psTable(ps []desktop.BackendStatus) string {
 			modelName = stripDefaultsFromModelName(modelName)
 		}
 
-		lastUsed := "in use"
-		if !status.LastUsed.IsZero() {
+		var lastUsed string
+		if status.InUse {
+			lastUsed = "in use"
+		} else if !status.LastUsed.IsZero() {
 			duration := time.Since(status.LastUsed)
 			if duration < 0 {
 				duration = 0
 			}
-			lastUsed = units.HumanDuration(duration) + " ago"
+			if duration < time.Second {
+				lastUsed = "just now"
+			} else {
+				lastUsed = units.HumanDuration(duration) + " ago"
+			}
+		} else {
+			// This case should not happen if InUse is properly set, but fallback to "in use" for zero time
+			lastUsed = "in use"
 		}
 
 		table.Append([]string{

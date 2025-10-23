@@ -586,6 +586,8 @@ type BackendStatus struct {
 	Mode string `json:"mode"`
 	// LastUsed represents when this backend was last used (if it's idle)
 	LastUsed time.Time `json:"last_used,omitempty"`
+	// InUse indicates whether this backend is currently handling a request
+	InUse bool `json:"in_use,omitempty"`
 }
 
 func (c *Client) PS() ([]BackendStatus, error) {
