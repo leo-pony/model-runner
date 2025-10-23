@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1
 
-ARG MUSA_VERSION=rc4.2.0
+ARG MUSA_VERSION=rc4.3.0
 ARG MUSA_IMAGE_VARIANT=ubuntu22.04
 
-FROM mthreads/musa:${MUSA_VERSION}-devel-${MUSA_IMAGE_VARIANT}amd64 AS builder
+FROM mthreads/musa:${MUSA_VERSION}-devel-${MUSA_IMAGE_VARIANT}-amd64 AS builder
 
 ARG TARGETARCH
 ARG MUSA_IMAGE_VARIANT
