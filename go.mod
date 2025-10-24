@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	github.com/containerd/containerd/v2 v2.1.3
 	github.com/containerd/platforms v1.0.0-rc.1
+	github.com/docker/go-units v0.5.0
 	github.com/elastic/go-sysinfo v1.15.3
 	github.com/google/go-containerregistry v0.20.6
 	github.com/gpustack/gguf-parser-go v0.22.1
