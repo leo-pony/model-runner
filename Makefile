@@ -5,6 +5,7 @@ LLAMA_SERVER_VERSION := latest
 LLAMA_SERVER_VARIANT := cpu
 BASE_IMAGE := ubuntu:24.04
 DOCKER_IMAGE := docker/model-runner:latest
+DOCKER_TARGET ?= final-llamacpp
 PORT := 8080
 MODELS_PATH := $(shell pwd)/models-store
 LLAMA_ARGS ?=
@@ -13,6 +14,7 @@ DOCKER_BUILD_ARGS := \
 	--build-arg LLAMA_SERVER_VERSION=$(LLAMA_SERVER_VERSION) \
 	--build-arg LLAMA_SERVER_VARIANT=$(LLAMA_SERVER_VARIANT) \
 	--build-arg BASE_IMAGE=$(BASE_IMAGE) \
+	--target $(DOCKER_TARGET) \
 	-t $(DOCKER_IMAGE)
 
 # Model distribution tool configuration
