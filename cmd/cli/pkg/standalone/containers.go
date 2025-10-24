@@ -217,6 +217,21 @@ func ensureContainerStarted(ctx context.Context, dockerClient client.ContainerAP
 	return errors.New("timed out")
 }
 
+// isRootless detects if Docker is running in rootless mode.
+func isRootless(ctx context.Context, dockerClient *client.Client) bool {
+	info, err := dockerClient.Info(ctx)
+	if err != nil {
+		// If we can't get Docker info, assume it's not rootless to preserve old behavior.
+		return false
+	}
+	for _, opt := range info.SecurityOptions {
+		if strings.Contains(opt, "rootless") {
+			return true
+		}
+	}
+	return false
+}
+
 // CreateControllerContainer creates and starts a controller container.
 func CreateControllerContainer(ctx context.Context, dockerClient *client.Client, port uint16, host string, environment string, doNotTrack bool, gpu gpupkg.GPUSupport, modelStorageVolume string, printer StatusPrinter, engineKind types.ModelRunnerEngineKind) error {
 	imageName := controllerImageName(gpu)
@@ -230,7 +245,7 @@ func CreateControllerContainer(ctx context.Context, dockerClient *client.Client,
 	if doNotTrack {
 		env = append(env, "DO_NOT_TRACK=1")
 	}
-	
+
 	// Pass proxy environment variables to the container if they are set
 	proxyEnvVars := []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy"}
 	for _, proxyVar := range proxyEnvVars {
@@ -264,8 +279,8 @@ func CreateControllerContainer(ctx context.Context, dockerClient *client.Client,
 	portBindings := []nat.PortBinding{{HostIP: host, HostPort: portStr}}
 	if os.Getenv("_MODEL_RUNNER_TREAT_DESKTOP_AS_MOBY") != "1" {
 		// Don't bind the bridge gateway IP if we're treating Docker Desktop as Moby.
-		// Only add bridge gateway IP binding if host is 127.0.0.1
-		if host == "127.0.0.1" {
+		// Only add bridge gateway IP binding if host is 127.0.0.1 and not in rootless mode
+		if host == "127.0.0.1" && !isRootless(ctx, dockerClient) {
 			if bridgeGatewayIP, err := determineBridgeGatewayIP(ctx, dockerClient); err == nil && bridgeGatewayIP != "" {
 				portBindings = append(portBindings, nat.PortBinding{HostIP: bridgeGatewayIP, HostPort: portStr})
 			}
