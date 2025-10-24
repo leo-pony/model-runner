@@ -68,6 +68,8 @@ jobs:
           echo "docker/model-runner:${{ inputs.releaseTag }}-vllm-cuda" >> "$GITHUB_OUTPUT"
           if [ "${{ inputs.pushLatest }}" == "true" ]; then
             echo "docker/model-runner:latest-vllm-cuda" >> "$GITHUB_OUTPUT"
+          fi
+          echo 'EOF' >> "$GITHUB_OUTPUT"
           echo "rocm<<EOF" >> "$GITHUB_OUTPUT"
           echo "docker/model-runner:${{ inputs.releaseTag }}-rocm" >> "$GITHUB_OUTPUT"
           if [ "${{ inputs.pushLatest }}" == "true" ]; then
