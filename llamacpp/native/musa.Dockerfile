@@ -46,4 +46,4 @@ FROM scratch AS final
 ARG TARGETARCH
 ARG MUSA_VERSION
 
-COPY --from=builder /llama-server/install /com.docker.llama-server.native.linux.musa$MUSA_VERSION.$TARGETARCH
+COPY --from=builder /llama-server/install /com.docker.llama-server.native.linux.musa.$TARGETARCH
