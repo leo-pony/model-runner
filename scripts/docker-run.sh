@@ -7,7 +7,11 @@ add_accelerators() {
       args+=("--device" "$i")
     fi
   done
-  args+=("--group-add" "$(getent group render | cut -d: -f3)")
+
+  # Add render group on Linux only (macOS doesn't have getent)
+  if [[ "$OSTYPE" != "darwin"* ]]; then
+    args+=("--group-add" "$(getent group render | cut -d: -f3)")
+  fi
 }
 
 add_optional_args() {
