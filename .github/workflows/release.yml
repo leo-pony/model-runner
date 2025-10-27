@@ -136,12 +136,14 @@ jobs:
         with:
           file: Dockerfile
           target: final-vllm
-          platforms: linux/amd64
+          platforms: linux/amd64, linux/arm64
           build-args: |
             "LLAMA_SERVER_VERSION=${{ inputs.llamaServerVersion }}"
             "LLAMA_SERVER_VARIANT=cuda"
             "BASE_IMAGE=nvidia/cuda:12.9.0-runtime-ubuntu24.04"
             "VLLM_VERSION=${{ inputs.vllmVersion }}"
+            "VLLM_CUDA_VERSION=cu129"
+            "VLLM_PYTHON_TAG=cp38-abi3"
           push: true
           sbom: true
           provenance: mode=max
