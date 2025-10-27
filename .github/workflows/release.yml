@@ -24,6 +24,11 @@ on:
         required: false
         type: string
         default: "0.11.0"
+      vllmCommitSha:
+        description: 'vLLM commit SHA (from git rev-list -n 1 v{version})'
+        required: false
+        type: string
+        default: "b8b302cde434df8c9289a2b465406b47ebab1c2d"
 
 jobs:
   test:
@@ -124,12 +129,15 @@ jobs:
         with:
           file: Dockerfile
           target: final-vllm
-          platforms: linux/amd64
+          platforms: linux/amd64, linux/arm64
           build-args: |
             "LLAMA_SERVER_VERSION=${{ inputs.llamaServerVersion }}"
             "LLAMA_SERVER_VARIANT=cuda"
             "BASE_IMAGE=nvidia/cuda:12.9.0-runtime-ubuntu24.04"
             "VLLM_VERSION=${{ inputs.vllmVersion }}"
+            "VLLM_COMMIT_SHA=${{ inputs.vllmCommitSha }}"
+            "VLLM_CUDA_VERSION=cu129"
+            "VLLM_PYTHON_TAG=cp38-abi3"
           push: true
           sbom: true
           provenance: mode=max

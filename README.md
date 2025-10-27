@@ -228,6 +228,81 @@ Available variants:
 
 The binary path in the image follows this pattern: `/com.docker.llama-server.native.linux.${LLAMA_SERVER_VARIANT}.${TARGETARCH}`
 
+### vLLM integration
+
+The Docker image also supports vLLM as an alternative inference backend.
+
+#### Building the vLLM variant
+
+To build a Docker image with vLLM support:
+
+```sh
+# Build with default settings (vLLM 0.11.0)
+make docker-build DOCKER_TARGET=final-vllm BASE_IMAGE=nvidia/cuda:12.9.0-runtime-ubuntu24.04 LLAMA_SERVER_VARIANT=cuda
+
+# Build for specific architecture
+docker buildx build \
+  --platform linux/amd64 \
+  --target final-vllm \
+  --build-arg BASE_IMAGE=nvidia/cuda:12.9.0-runtime-ubuntu24.04 \
+  --build-arg LLAMA_SERVER_VARIANT=cuda \
+  --build-arg VLLM_VERSION=0.11.0 \
+  --build-arg VLLM_COMMIT_SHA=b8b302cde434df8c9289a2b465406b47ebab1c2d \
+  -t docker/model-runner:vllm .
+```
+
+#### Build Arguments
+
+The vLLM variant supports the following build arguments:
+
+- **VLLM_VERSION**: The vLLM version to install (default: `0.11.0`)
+- **VLLM_COMMIT_SHA**: The git commit SHA corresponding to the vLLM version (default: `b8b302cde434df8c9289a2b465406b47ebab1c2d` for v0.11.0)
+- **VLLM_CUDA_VERSION**: The CUDA version suffix for the wheel (default: `cu129`)
+- **VLLM_PYTHON_TAG**: The Python compatibility tag (default: `cp38-abi3`, compatible with Python 3.8+)
+
+#### Multi-Architecture Support
+
+The vLLM variant supports both x86_64 (amd64) and aarch64 (arm64) architectures. The build process automatically selects the appropriate prebuilt wheel:
+
+- **linux/amd64**: Uses `manylinux1_x86_64` wheels
+- **linux/arm64**: Uses `manylinux2014_aarch64` wheels
+
+To build for multiple architectures:
+
+```sh
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --target final-vllm \
+  --build-arg BASE_IMAGE=nvidia/cuda:12.9.0-runtime-ubuntu24.04 \
+  --build-arg LLAMA_SERVER_VARIANT=cuda \
+  -t docker/model-runner:vllm .
+```
+
+#### Updating to a New vLLM Version
+
+To update to a new vLLM version, you need to:
+
+1. **Find the commit SHA for the version:**
+   ```sh
+   # Clone the vLLM repository (if not already cloned)
+   git clone https://github.com/vllm-project/vllm.git
+   cd vllm
+   
+   # Get the commit SHA for a specific version
+   git rev-list -n 1 v0.11.1
+   ```
+
+2. **Build with the new version:**
+   ```sh
+   docker buildx build \
+     --target final-vllm \
+     --build-arg VLLM_VERSION=0.11.1 \
+     --build-arg VLLM_COMMIT_SHA=<commit-sha-from-step-1> \
+     -t docker/model-runner:vllm-0.11.1 .
+   ```
+
+The vLLM wheels are sourced from the official vLLM wheel repository at `https://wheels.vllm.ai/{commit_sha}/vllm/`, which provides prebuilt wheels for every commit.
+
 ## API Examples
 
 The Model Runner exposes a REST API that can be accessed via TCP port. You can interact with it using curl commands.
