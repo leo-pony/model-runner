@@ -334,14 +334,21 @@ func CreateControllerContainer(ctx context.Context, dockerClient *client.Client,
 	if runtime.GOOS == "linux" {
 		out, err := exec.CommandContext(ctx, "getent", "group", "render").CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("failed to retrieve the GID of 'render': %w", err)
+			printer.Printf("Warning: render group not found, skipping group addition\n")
+		} else {
+			trimmedOut := strings.TrimSpace(string(out))
+			tokens := strings.Split(trimmedOut, ":")
+			if len(tokens) < 3 {
+				printer.Printf("Warning: unexpected getent output format: %q\n", trimmedOut)
+			} else {
+				gid, err := strconv.Atoi(tokens[2])
+				if err != nil {
+					printer.Printf("Warning: failed to parse render GID from %q: %v\n", tokens[2], err)
+				} else {
+					hostConfig.GroupAdd = append(hostConfig.GroupAdd, strconv.Itoa(gid))
+				}
+			}
 		}
-		tokens := strings.Split(string(out), ":")
-		gid, err := strconv.Atoi(tokens[2])
-		if err != nil {
-			return fmt.Errorf("failed to parse the GID of 'render': %w", err)
-		}
-		hostConfig.GroupAdd = append(hostConfig.GroupAdd, strconv.Itoa(gid))
 	}
 
 	// Create the container. If we detect that a concurrent installation is in
