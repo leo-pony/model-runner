@@ -80,7 +80,6 @@ ENTRYPOINT ["/app/model-runner"]
 FROM llamacpp AS vllm
 
 ARG VLLM_VERSION=0.11.0
-ARG VLLM_COMMIT_SHA=b8b302cde434df8c9289a2b465406b47ebab1c2d
 ARG VLLM_CUDA_VERSION=cu129
 ARG VLLM_PYTHON_TAG=cp38-abi3
 ARG TARGETARCH
@@ -101,7 +100,7 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
     else \
       WHEEL_ARCH="manylinux2014_aarch64"; \
     fi \
- && WHEEL_URL="https://wheels.vllm.ai/${VLLM_COMMIT_SHA}/vllm-${VLLM_VERSION}%2B${VLLM_CUDA_VERSION}-${VLLM_PYTHON_TAG}-${WHEEL_ARCH}.whl" \
+ && WHEEL_URL="https://github.com/vllm-project/vllm/releases/download/v${VLLM_VERSION}/vllm-${VLLM_VERSION}%2B${VLLM_CUDA_VERSION}-${VLLM_PYTHON_TAG}-${WHEEL_ARCH}.whl" \
  && ~/.local/bin/uv pip install --python /opt/vllm-env/bin/python "$WHEEL_URL"
 
 RUN /opt/vllm-env/bin/python -c "import vllm; print(vllm.__version__)" > /opt/vllm-env/version

@@ -247,7 +247,6 @@ docker buildx build \
   --build-arg BASE_IMAGE=nvidia/cuda:12.9.0-runtime-ubuntu24.04 \
   --build-arg LLAMA_SERVER_VARIANT=cuda \
   --build-arg VLLM_VERSION=0.11.0 \
-  --build-arg VLLM_COMMIT_SHA=b8b302cde434df8c9289a2b465406b47ebab1c2d \
   -t docker/model-runner:vllm .
 ```
 
@@ -256,7 +255,6 @@ docker buildx build \
 The vLLM variant supports the following build arguments:
 
 - **VLLM_VERSION**: The vLLM version to install (default: `0.11.0`)
-- **VLLM_COMMIT_SHA**: The git commit SHA corresponding to the vLLM version (default: `b8b302cde434df8c9289a2b465406b47ebab1c2d` for v0.11.0)
 - **VLLM_CUDA_VERSION**: The CUDA version suffix for the wheel (default: `cu129`)
 - **VLLM_PYTHON_TAG**: The Python compatibility tag (default: `cp38-abi3`, compatible with Python 3.8+)
 
@@ -280,28 +278,16 @@ docker buildx build \
 
 #### Updating to a New vLLM Version
 
-To update to a new vLLM version, you need to:
+To update to a new vLLM version:
 
-1. **Find the commit SHA for the version:**
-   ```sh
-   # Clone the vLLM repository (if not already cloned)
-   git clone https://github.com/vllm-project/vllm.git
-   cd vllm
-   
-   # Get the commit SHA for a specific version
-   git rev-list -n 1 v0.11.1
-   ```
+```sh
+docker buildx build \
+  --target final-vllm \
+  --build-arg VLLM_VERSION=0.11.1 \
+  -t docker/model-runner:vllm-0.11.1 .
+```
 
-2. **Build with the new version:**
-   ```sh
-   docker buildx build \
-     --target final-vllm \
-     --build-arg VLLM_VERSION=0.11.1 \
-     --build-arg VLLM_COMMIT_SHA=<commit-sha-from-step-1> \
-     -t docker/model-runner:vllm-0.11.1 .
-   ```
-
-The vLLM wheels are sourced from the official vLLM wheel repository at `https://wheels.vllm.ai/{commit_sha}/vllm/`, which provides prebuilt wheels for every commit.
+The vLLM wheels are sourced from the official vLLM GitHub Releases at `https://github.com/vllm-project/vllm/releases`, which provides prebuilt wheels for each release version.
 
 ## API Examples
 
