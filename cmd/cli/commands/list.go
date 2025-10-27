@@ -60,15 +60,13 @@ func listModels(openai bool, desktopClient *desktop.Client, quiet bool, jsonForm
 	if openai {
 		models, err := desktopClient.ListOpenAI()
 		if err != nil {
-			err = handleClientError(err, "Failed to list models")
-			return "", handleNotRunningError(err)
+			return "", handleClientError(err, "Failed to list models")
 		}
 		return formatter.ToStandardJSON(models)
 	}
 	models, err := desktopClient.List()
 	if err != nil {
-		err = handleClientError(err, "Failed to list models")
-		return "", handleNotRunningError(err)
+		return "", handleClientError(err, "Failed to list models")
 	}
 
 	if modelFilter != "" {

@@ -29,6 +29,8 @@ const (
 	vllmDir = "/opt/vllm-env/bin"
 )
 
+var StatusNotFound = errors.New("vLLM binary not found")
+
 // vLLM is the vLLM-based backend implementation.
 type vLLM struct {
 	// log is the associated logger.
@@ -76,7 +78,8 @@ func (v *vLLM) Install(_ context.Context, _ *http.Client) error {
 	vllmBinaryPath := v.binaryPath()
 	if _, err := os.Stat(vllmBinaryPath); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("vLLM binary not found at %s", vllmBinaryPath)
+			v.status = StatusNotFound.Error()
+			return StatusNotFound
 		}
 		return fmt.Errorf("failed to check vLLM binary: %w", err)
 	}
