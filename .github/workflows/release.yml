@@ -76,6 +76,12 @@ jobs:
             echo "docker/model-runner:latest-rocm" >> "$GITHUB_OUTPUT"
           fi
           echo 'EOF' >> "$GITHUB_OUTPUT"
+          echo "musa<<EOF" >> "$GITHUB_OUTPUT"
+          echo "docker/model-runner:${{ inputs.releaseTag }}-musa" >> "$GITHUB_OUTPUT"
+          if [ "${{ inputs.pushLatest }}" == "true" ]; then
+            echo "docker/model-runner:latest-musa" >> "$GITHUB_OUTPUT"
+          fi
+          echo 'EOF' >> "$GITHUB_OUTPUT"
 
       - name: Log in to DockerHub
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef
@@ -133,6 +139,7 @@ jobs:
           push: true
           sbom: true
           provenance: mode=max
+          tags: ${{ steps.tags.outputs.vllm-cuda }}
 
       - name: Build ROCm image
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
