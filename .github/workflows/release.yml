@@ -150,7 +150,7 @@ jobs:
           build-args: |
             "LLAMA_SERVER_VERSION=${{ inputs.llamaServerVersion }}"
             "LLAMA_SERVER_VARIANT=rocm"
-            "BASE_IMAGE=rocm/ubuntu:22.04"
+            "BASE_IMAGE=rocm/dev-ubuntu-22.04"
           push: true
           sbom: true
           provenance: mode=max
