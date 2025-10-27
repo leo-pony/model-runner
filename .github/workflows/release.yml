@@ -24,6 +24,12 @@ on:
         required: false
         type: string
         default: "0.11.0"
+      # This can be removed once we have llama.cpp built for MUSA.
+      buildMusa:
+        description: 'Build MUSA image'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   test:
@@ -157,6 +163,7 @@ jobs:
           tags: ${{ steps.tags.outputs.rocm }}
 
       - name: Build MUSA image
+        if: ${{ inputs.buildMusa }}
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
         with:
           file: Dockerfile
