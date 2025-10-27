@@ -247,6 +247,8 @@ func (s *Scheduler) handleOpenAIInference(w http.ResponseWriter, r *http.Request
 			// shutting down (since that will also cancel the request context).
 			// Either way, provide a response, even if it's ignored.
 			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+		} else if errors.Is(err, vllm.StatusNotFound) {
+			http.Error(w, err.Error(), http.StatusPreconditionFailed)
 		} else {
 			http.Error(w, fmt.Errorf("backend installation failed: %w", err).Error(), http.StatusServiceUnavailable)
 		}
