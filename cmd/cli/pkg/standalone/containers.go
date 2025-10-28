@@ -233,8 +233,8 @@ func isRootless(ctx context.Context, dockerClient *client.Client) bool {
 }
 
 // CreateControllerContainer creates and starts a controller container.
-func CreateControllerContainer(ctx context.Context, dockerClient *client.Client, port uint16, host string, environment string, doNotTrack bool, gpu gpupkg.GPUSupport, modelStorageVolume string, printer StatusPrinter, engineKind types.ModelRunnerEngineKind) error {
-	imageName := controllerImageName(gpu)
+func CreateControllerContainer(ctx context.Context, dockerClient *client.Client, port uint16, host string, environment string, doNotTrack bool, gpu gpupkg.GPUSupport, backend string, modelStorageVolume string, printer StatusPrinter, engineKind types.ModelRunnerEngineKind) error {
+	imageName := controllerImageName(gpu, backend)
 
 	// Set up the container configuration.
 	portStr := strconv.Itoa(int(port))
