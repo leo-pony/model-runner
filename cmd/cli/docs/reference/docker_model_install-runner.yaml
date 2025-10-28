@@ -6,6 +6,15 @@ usage: docker model install-runner
 pname: docker model
 plink: docker_model.yaml
 options:
+    - option: backend
+      value_type: string
+      description: 'Specify backend (llama.cpp|vllm). Default: llama.cpp'
+      deprecated: false
+      hidden: false
+      experimental: false
+      experimentalcli: false
+      kubernetes: false
+      swarm: false
     - option: do-not-track
       value_type: bool
       default_value: "false"
@@ -41,16 +50,6 @@ options:
       default_value: "0"
       description: |
         Docker container port for Docker Model Runner (default: 12434 for Docker Engine, 12435 for Cloud mode)
-      deprecated: false
-      hidden: false
-      experimental: false
-      experimentalcli: false
-      kubernetes: false
-      swarm: false
-    - option: vllm
-      value_type: bool
-      default_value: "false"
-      description: Use vLLM backend (requires CUDA GPU support)
       deprecated: false
       hidden: false
       experimental: false
