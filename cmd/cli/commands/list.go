@@ -158,13 +158,15 @@ func appendRow(table *tablewriter.Table, tag string, model dmrm.Model) {
 	}
 	// Strip default "ai/" prefix and ":latest" tag for display
 	displayTag := stripDefaultsFromModelName(tag)
-	contextSize := "-"
+	contextSize := ""
 	if model.Config.ContextSize != nil {
 		contextSize = fmt.Sprintf("%d", *model.Config.ContextSize)
 	} else if model.Config.GGUF != nil {
 		if v, ok := model.Config.GGUF["llama.context_length"]; ok {
 			if parsed, err := strconv.ParseUint(v, 10, 64); err == nil {
 				contextSize = fmt.Sprintf("%d", parsed)
+			} else {
+				fmt.Fprintf(os.Stderr, "invalid context length %q for model %s: %v\n", v, model.ID, err)
 			}
 		}
 	}
