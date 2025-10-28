@@ -13,8 +13,8 @@ import (
 )
 
 // EnsureControllerImage ensures that the controller container image is pulled.
-func EnsureControllerImage(ctx context.Context, dockerClient client.ImageAPIClient, gpu gpupkg.GPUSupport, printer StatusPrinter) error {
-	imageName := controllerImageName(gpu)
+func EnsureControllerImage(ctx context.Context, dockerClient client.ImageAPIClient, gpu gpupkg.GPUSupport, vllm bool, printer StatusPrinter) error {
+	imageName := controllerImageName(gpu, vllm)
 
 	// Perform the pull.
 	out, err := dockerClient.ImagePull(ctx, imageName, image.PullOptions{})

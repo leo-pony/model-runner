@@ -59,11 +59,46 @@ func TestInstallRunnerCommandFlags(t *testing.T) {
 	cmd := newInstallRunner()
 
 	// Verify all expected flags exist
-	expectedFlags := []string{"port", "host", "gpu", "do-not-track"}
+	expectedFlags := []string{"port", "host", "gpu", "vllm", "do-not-track"}
 	for _, flagName := range expectedFlags {
 		if cmd.Flags().Lookup(flagName) == nil {
 			t.Errorf("Expected flag '--%s' not found", flagName)
 		}
+	}
+}
+
+func TestInstallRunnerVLLMFlag(t *testing.T) {
+	cmd := newInstallRunner()
+
+	// Verify the --vllm flag exists
+	vllmFlag := cmd.Flags().Lookup("vllm")
+	if vllmFlag == nil {
+		t.Fatal("--vllm flag not found")
+	}
+
+	// Verify the default value
+	if vllmFlag.DefValue != "false" {
+		t.Errorf("Expected default vllm value to be 'false', got '%s'", vllmFlag.DefValue)
+	}
+
+	// Verify the flag type
+	if vllmFlag.Value.Type() != "bool" {
+		t.Errorf("Expected vllm flag type to be 'bool', got '%s'", vllmFlag.Value.Type())
+	}
+
+	// Test setting the flag value
+	err := cmd.Flags().Set("vllm", "true")
+	if err != nil {
+		t.Errorf("Failed to set vllm flag: %v", err)
+	}
+
+	// Verify the value was set
+	vllmValue, err := cmd.Flags().GetBool("vllm")
+	if err != nil {
+		t.Errorf("Failed to get vllm flag value: %v", err)
+	}
+	if !vllmValue {
+		t.Error("Expected vllm value to be true")
 	}
 }
 
