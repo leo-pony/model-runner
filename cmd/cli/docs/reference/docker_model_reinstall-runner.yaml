@@ -47,6 +47,16 @@ options:
       experimentalcli: false
       kubernetes: false
       swarm: false
+    - option: vllm
+      value_type: bool
+      default_value: "false"
+      description: Use vLLM backend (requires CUDA GPU support)
+      deprecated: false
+      hidden: false
+      experimental: false
+      experimentalcli: false
+      kubernetes: false
+      swarm: false
 deprecated: false
 hidden: false
 experimental: false
