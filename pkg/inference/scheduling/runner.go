@@ -176,8 +176,11 @@ func run(
 			w.WriteHeader(http.StatusBadGateway)
 		}
 	}
-
-	r.openAIRecorder.SetConfigForModel(modelID, runnerConfig)
+	if r.openAIRecorder != nil {
+		r.openAIRecorder.SetConfigForModel(modelID, runnerConfig)
+	} else {
+		r.log.Warnf("OpenAI recorder is nil for model %s", modelID)
+	}
 
 	// Start the backend run loop.
 	go func() {
@@ -252,7 +255,11 @@ func (r *runner) terminate() {
 		r.log.Warnf("Unable to close reverse proxy log writer: %v", err)
 	}
 
-	r.openAIRecorder.RemoveModel(r.model)
+	if r.openAIRecorder != nil {
+		r.openAIRecorder.RemoveModel(r.model)
+	} else {
+		r.log.Warnf("OpenAI recorder is nil for model %s", r.model)
+	}
 }
 
 // ServeHTTP implements net/http.Handler.ServeHTTP. It forwards requests to the
