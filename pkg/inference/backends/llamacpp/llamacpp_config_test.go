@@ -37,6 +37,16 @@ func TestNewDefaultLlamaCppConfig(t *testing.T) {
 		t.Errorf("Expected -ngl value to be 999, got %s", config.Args[nglIndex+1])
 	}
 
+	// Test macOS (Apple) specific case
+	if runtime.GOOS == "darwin" {
+		if !containsArg(config.Args, "--no-mmap") {
+			t.Error("Expected --no-mmap argument to be present on macOS")
+		}
+	} else if containsArg(config.Args, "--no-mmap") {
+		// On non-macOS systems, --no-mmap should not be present by default
+		t.Error("Did not expect --no-mmap argument to be present on non-macOS systems")
+	}
+
 	// Test Windows ARM64 specific case
 	if runtime.GOOS == "windows" && runtime.GOARCH == "arm64" {
 		if !containsArg(config.Args, "--threads") {
@@ -73,8 +83,11 @@ func TestGetArgs(t *testing.T) {
 	modelPath := "/path/to/model"
 	socket := "unix:///tmp/socket"
 
-	// Build base expected args based on architecture
+	// Build base expected args based on architecture and OS
 	baseArgs := []string{"-ngl", "999", "--metrics"}
+	if runtime.GOOS == "darwin" {
+		baseArgs = append(baseArgs, "--no-mmap")
+	}
 	if runtime.GOARCH == "arm64" {
 		nThreads := max(2, runtime.NumCPU()/2)
 		baseArgs = append(baseArgs, "--threads", strconv.Itoa(nThreads))
