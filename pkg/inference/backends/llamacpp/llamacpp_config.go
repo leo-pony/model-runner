@@ -19,6 +19,11 @@ type Config struct {
 func NewDefaultLlamaCppConfig() *Config {
 	args := []string{"-ngl", "999", "--metrics"}
 
+	// Special case for macOS (Apple), optimization
+	if runtime.GOOS == "darwin" {
+		args = append(args, "--no-mmap")
+	}
+
 	// Special case for ARM64
 	if runtime.GOARCH == "arm64" {
 		// Using a thread count equal to core count results in bad performance, and there seems to be little to no gain
