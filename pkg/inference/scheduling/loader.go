@@ -211,6 +211,27 @@ func (l *loader) broadcast() {
 	}
 }
 
+// formatMemorySize formats a memory size in bytes as a string.
+// Values of 0 or 1 are treated as sentinel values for "unknown" memory size.
+func formatMemorySize(bytes uint64) string {
+	if bytes <= 1 {
+		return "unknown"
+	}
+	return fmt.Sprintf("%d MB", bytes/1024/1024)
+}
+
+// freeRunnerSlot frees a runner slot and reclaims its memory.
+// The caller must hold the loader lock.
+func (l *loader) freeRunnerSlot(slot int, key runnerKey) {
+	l.slots[slot].terminate()
+	l.slots[slot] = nil
+	l.availableMemory.RAM += l.allocations[slot].RAM
+	l.availableMemory.VRAM += l.allocations[slot].VRAM
+	l.allocations[slot] = inference.RequiredMemory{RAM: 0, VRAM: 0}
+	l.timestamps[slot] = time.Time{}
+	delete(l.runners, key)
+}
+
 // evict evicts all unused runners from the loader. If idleOnly is true, then
 // only those unused, but functioning, runners which are considered "idle" (based
 // on usage timestamp) are evicted. Defunct (e.g. crashed) runners will be evicted
@@ -218,6 +239,7 @@ func (l *loader) broadcast() {
 // lock. It returns the number of remaining runners.
 func (l *loader) evict(idleOnly bool) int {
 	now := time.Now()
+	evictedCount := 0
 	for r, runnerInfo := range l.runners {
 		unused := l.references[runnerInfo.slot] == 0
 		idle := unused && now.Sub(l.timestamps[runnerInfo.slot]) > l.runnerIdleTimeout
@@ -231,14 +253,21 @@ func (l *loader) evict(idleOnly bool) int {
 			l.log.Infof("Evicting %s backend runner with model %s (%s) in %s mode",
 				r.backend, r.modelID, runnerInfo.modelRef, r.mode,
 			)
-			l.slots[runnerInfo.slot].terminate()
-			l.slots[runnerInfo.slot] = nil
-			l.availableMemory.RAM += l.allocations[runnerInfo.slot].RAM
-			l.availableMemory.VRAM += l.allocations[runnerInfo.slot].VRAM
-			l.allocations[runnerInfo.slot] = inference.RequiredMemory{RAM: 0, VRAM: 0}
-			l.timestamps[runnerInfo.slot] = time.Time{}
-			delete(l.runners, r)
+			l.freeRunnerSlot(runnerInfo.slot, r)
+			evictedCount++
+		} else if unused {
+			l.log.Debugf("Runner %s (%s) is unused but not evictable: idleOnly=%v, idle=%v, defunct=%v",
+				r.modelID, runnerInfo.modelRef, idleOnly, idle, defunct)
+		} else {
+			l.log.Debugf("Runner %s (%s) is in use with %d references, cannot evict",
+				r.modelID, runnerInfo.modelRef, l.references[runnerInfo.slot])
 		}
+	}
+	if evictedCount > 0 {
+		l.log.Infof("Evicted %d runner(s). Available memory: %s RAM, %s VRAM",
+			evictedCount,
+			formatMemorySize(l.availableMemory.RAM),
+			formatMemorySize(l.availableMemory.VRAM))
 	}
 	return len(l.runners)
 }
@@ -253,13 +282,7 @@ func (l *loader) evictRunner(backend, model string, mode inference.BackendMode) 
 			l.log.Infof("Evicting %s backend runner with model %s (%s) in %s mode",
 				r.backend, r.modelID, runnerInfo.modelRef, r.mode,
 			)
-			l.slots[runnerInfo.slot].terminate()
-			l.slots[runnerInfo.slot] = nil
-			l.availableMemory.RAM += l.allocations[runnerInfo.slot].RAM
-			l.availableMemory.VRAM += l.allocations[runnerInfo.slot].VRAM
-			l.allocations[runnerInfo.slot] = inference.RequiredMemory{RAM: 0, VRAM: 0}
-			l.timestamps[runnerInfo.slot] = time.Time{}
-			delete(l.runners, r)
+			l.freeRunnerSlot(runnerInfo.slot, r)
 		}
 	}
 	return len(l.runners)
@@ -442,7 +465,12 @@ func (l *loader) load(ctx context.Context, backendName, modelID, modelRef string
 	} else if err != nil {
 		return nil, err
 	}
-	l.log.Infof("Loading %s, which will require %d MB RAM and %d MB VRAM on a system with %d MB RAM and %d MB VRAM", modelID, memory.RAM/1024/1024, memory.VRAM/1024/1024, l.totalMemory.RAM/1024/1024, l.totalMemory.VRAM/1024/1024)
+
+	l.log.Infof("Loading %s, which will require %s RAM and %s VRAM on a system with %s RAM and %s VRAM",
+		modelID,
+		formatMemorySize(memory.RAM), formatMemorySize(memory.VRAM),
+		formatMemorySize(l.totalMemory.RAM), formatMemorySize(l.totalMemory.VRAM))
+
 	if l.totalMemory.RAM == 1 {
 		l.log.Warnf("RAM size unknown. Assume model will fit, but only one.")
 		memory.RAM = 1
@@ -480,6 +508,13 @@ func (l *loader) load(ctx context.Context, backendName, modelID, modelRef string
 	for {
 		slot := -1
 		availableVRAM := l.availableMemory.VRAM
+		if runtime.GOOS == "windows" {
+			sharedRAM := l.totalMemory.RAM / 2
+			if l.availableMemory.RAM < sharedRAM {
+				sharedRAM = l.availableMemory.RAM
+			}
+			availableVRAM += sharedRAM
+		}
 
 		// If loads are disabled, then there's nothing we can do.
 		if !l.loadsEnabled {
@@ -494,6 +529,8 @@ func (l *loader) load(ctx context.Context, backendName, modelID, modelRef string
 				l.log.Warnf("%s runner for %s is defunct. Waiting for it to be evicted.", backendName, existing.modelRef)
 				if l.references[existing.slot] == 0 {
 					l.evictRunner(backendName, modelID, mode)
+					// Continue the loop to retry loading after evicting the defunct runner
+					continue
 				} else {
 					goto WaitForChange
 				}
@@ -504,20 +541,21 @@ func (l *loader) load(ctx context.Context, backendName, modelID, modelRef string
 			}
 		}
 
-		if runtime.GOOS == "windows" {
-			// On Windows, we can use up to half of the total system RAM as shared GPU memory,
-			// limited by the currently available RAM.
-			sharedRAM := l.totalMemory.RAM / 2
-			if l.availableMemory.RAM < sharedRAM {
-				sharedRAM = l.availableMemory.RAM
-			}
-			availableVRAM += sharedRAM
-		}
-
 		// If there's not sufficient memory or all slots are full, then try
 		// evicting unused runners.
 		if memory.RAM > l.availableMemory.RAM || memory.VRAM > availableVRAM || len(l.runners) == len(l.slots) {
-			l.evict(false)
+			l.log.Infof("Evicting to make room: need %s RAM, %s VRAM; have %s RAM, %s VRAM available; %d/%d slots used",
+				formatMemorySize(memory.RAM), formatMemorySize(memory.VRAM),
+				formatMemorySize(l.availableMemory.RAM),
+				formatMemorySize(availableVRAM),
+				len(l.runners), len(l.slots))
+			runnerCountAtLoopStart := len(l.runners)
+			remainingRunners := l.evict(false)
+			// Restart the loop if eviction happened to recompute availableVRAM
+			// and re-evaluate all conditions with the updated state.
+			if remainingRunners < runnerCountAtLoopStart {
+				continue
+			}
 		}
 
 		// If there's sufficient memory and a free slot, then find the slot.
@@ -528,6 +566,14 @@ func (l *loader) load(ctx context.Context, backendName, modelID, modelRef string
 					break
 				}
 			}
+		}
+
+		if slot < 0 {
+			l.log.Debugf("Cannot load model yet: need %s RAM, %s VRAM; have %s RAM, %s VRAM available; %d/%d slots used",
+				formatMemorySize(memory.RAM), formatMemorySize(memory.VRAM),
+				formatMemorySize(l.availableMemory.RAM),
+				formatMemorySize(availableVRAM),
+				len(l.runners), len(l.slots))
 		}
 
 		// If we've identified a slot, then we're ready to start a runner.
