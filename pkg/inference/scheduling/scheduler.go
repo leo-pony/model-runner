@@ -155,6 +155,27 @@ func (s *Scheduler) Run(ctx context.Context) error {
 	return workers.Wait()
 }
 
+// selectBackendForModel selects the appropriate backend for a model based on its format.
+// If the model is in safetensors format, it will prefer vLLM if available.
+func (s *Scheduler) selectBackendForModel(model types.Model, backend inference.Backend, modelRef string) inference.Backend {
+	config, err := model.Config()
+	if err != nil {
+		s.log.Warnln("failed to fetch model config:", err)
+		return backend
+	}
+
+	if config.Format == types.FormatSafetensors {
+		if vllmBackend, ok := s.backends[vllm.Name]; ok && vllmBackend != nil {
+			return vllmBackend
+		}
+		s.log.Warnf("Model %s is in safetensors format but vLLM backend is not available. "+
+			"Backend %s may not support this format and could fail at runtime.",
+			utils.SanitizeForLog(modelRef), backend.Name())
+	}
+
+	return backend
+}
+
 // handleOpenAIInference handles scheduling and responding to OpenAI inference
 // requests, including:
 // - POST <inference-prefix>/{backend}/v1/chat/completions
@@ -218,20 +239,7 @@ func (s *Scheduler) handleOpenAIInference(w http.ResponseWriter, r *http.Request
 		s.tracker.TrackModel(model, r.UserAgent(), "inference/"+backendMode.String())
 
 		// Automatically identify models for vLLM.
-		config, err := model.Config()
-		if err != nil {
-			s.log.Warnln("failed to fetch model config:", err)
-		} else {
-			if config.Format == types.FormatSafetensors {
-				if vllmBackend, ok := s.backends[vllm.Name]; ok {
-					backend = vllmBackend
-				} else {
-					s.log.Warnf("Model %s is in safetensors format but vLLM backend is not available. "+
-						"Backend %s may not support this format and could fail at runtime.",
-						utils.SanitizeForLog(request.Model), backend.Name())
-				}
-			}
-		}
+		backend = s.selectBackendForModel(model, backend, request.Model)
 	}
 
 	// Wait for the corresponding backend installation to complete or fail. We
@@ -440,6 +448,9 @@ func (s *Scheduler) Configure(w http.ResponseWriter, r *http.Request) {
 	if model, err := s.modelManager.GetModel(configureRequest.Model); err == nil {
 		// Configure is called by compose for each model.
 		s.tracker.TrackModel(model, r.UserAgent(), "configure/"+mode.String())
+
+		// Automatically identify models for vLLM.
+		backend = s.selectBackendForModel(model, backend, configureRequest.Model)
 	}
 	modelID := s.modelManager.ResolveModelID(configureRequest.Model)
 	if err := s.loader.setRunnerConfig(r.Context(), backend.Name(), modelID, mode, runnerConfig); err != nil {
