@@ -7,13 +7,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/docker/model-runner/cmd/cli/pkg/types"
-
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/model-runner/cmd/cli/commands/completion"
 	"github.com/docker/model-runner/cmd/cli/desktop"
 	gpupkg "github.com/docker/model-runner/cmd/cli/pkg/gpu"
 	"github.com/docker/model-runner/cmd/cli/pkg/standalone"
+	"github.com/docker/model-runner/cmd/cli/pkg/types"
+	"github.com/docker/model-runner/pkg/inference/backends/llamacpp"
+	"github.com/docker/model-runner/pkg/inference/backends/vllm"
 	"github.com/spf13/cobra"
 )
 
@@ -256,12 +257,12 @@ func runInstallOrStart(cmd *cobra.Command, opts runnerOptions) error {
 	}
 
 	// Validate backend selection
-	if opts.backend != "" && opts.backend != "llama.cpp" && opts.backend != "vllm" {
-		return fmt.Errorf("unknown backend: %q (supported: llama.cpp, vllm)", opts.backend)
+	if opts.backend != "" && opts.backend != llamacpp.Name && opts.backend != vllm.Name {
+		return fmt.Errorf("unknown backend: %q (supported: %s, %s)", opts.backend, llamacpp.Name, vllm.Name)
 	}
 
 	// Validate backend-GPU compatibility
-	if opts.backend == "vllm" && gpu != gpupkg.GPUSupportCUDA {
+	if opts.backend == vllm.Name && gpu != gpupkg.GPUSupportCUDA {
 		return fmt.Errorf("--backend vllm requires CUDA GPU support (--gpu=cuda or auto-detected CUDA)")
 	}
 
