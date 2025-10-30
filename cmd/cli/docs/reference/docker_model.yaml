@@ -14,6 +14,7 @@ cname:
     - docker model package
     - docker model ps
     - docker model pull
+    - docker model purge
     - docker model push
     - docker model reinstall-runner
     - docker model requests
@@ -36,6 +37,7 @@ clink:
     - docker_model_package.yaml
     - docker_model_ps.yaml
     - docker_model_pull.yaml
+    - docker_model_purge.yaml
     - docker_model_push.yaml
     - docker_model_reinstall-runner.yaml
     - docker_model_requests.yaml

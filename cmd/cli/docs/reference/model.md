@@ -15,6 +15,7 @@ Docker Model Runner
 | [`package`](model_package.md)                   | Package a GGUF file, Safetensors directory, or existing model into a Docker model OCI artifact. |
 | [`ps`](model_ps.md)                             | List running models                                                                             |
 | [`pull`](model_pull.md)                         | Pull a model from Docker Hub or HuggingFace to your local environment                           |
+| [`purge`](model_purge.md)                       | Remove all models                                                                               |
 | [`push`](model_push.md)                         | Push a model to Docker Hub                                                                      |
 | [`reinstall-runner`](model_reinstall-runner.md) | Reinstall Docker Model Runner (Docker Engine only)                                              |
 | [`requests`](model_requests.md)                 | Fetch requests+responses from Docker Model Runner                                               |
