@@ -13,9 +13,10 @@ add_accelerators() {
     fi
   done
 
-  # Add render group on Linux only (macOS doesn't have getent)
-  if [[ "$OSTYPE" != "darwin"* ]]; then
-    args+=("--group-add" "$(getent group render | cut -d: -f3)")
+  local render_gid
+  render_gid=$(command getent group render 2>/dev/null | cut -d: -f3)
+  if [[ -n "$render_gid" ]]; then
+    args+=("--group-add" "$render_gid")
   fi
 }
 
