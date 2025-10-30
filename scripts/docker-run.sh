@@ -14,7 +14,7 @@ add_accelerators() {
   done
 
   local render_gid
-  render_gid=$(command getent group render 2>/dev/null | cut -d: -f3)
+  render_gid=$(set +o pipefail; command getent group render 2>/dev/null | cut -d: -f3)
   if [[ -n "$render_gid" ]]; then
     args+=("--group-add" "$render_gid")
   fi
