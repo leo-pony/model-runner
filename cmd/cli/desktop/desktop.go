@@ -762,6 +762,22 @@ func (c *Client) Requests(modelFilter string, streaming bool, includeExisting bo
 	return resp.Body, cancel, nil
 }
 
+func (c *Client) Purge() error {
+	purgePath := inference.ModelsPrefix + "/purge"
+	resp, err := c.doRequest(http.MethodDelete, purgePath, nil)
+	if err != nil {
+		return c.handleQueryError(err, purgePath)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("purging failed with status %s: %s", resp.Status, string(body))
+	}
+
+	return nil
+}
+
 // doRequest is a helper function that performs HTTP requests and handles 503 responses
 func (c *Client) doRequest(method, path string, body io.Reader) (*http.Response, error) {
 	return c.doRequestWithAuth(method, path, body)
