@@ -61,7 +61,7 @@ add_optional_args() {
 main() {
   set -eux -o pipefail
 
-  local args=(docker run --rm -e LLAMA_SERVER_PATH=/app/bin)
+  local args=(docker run --env HTTP_PROXY="http://172.17.0.1:7890" --env HTTPS_PROXY="http://172.17.0.1:7890" --env NO_PROXY="localhost,127.0.0.1,.mydomain.com" --rm -e LLAMA_SERVER_PATH=/app/bin)
   add_optional_args
 
   # Ensure model path exists only if provided

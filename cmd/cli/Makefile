@@ -73,7 +73,7 @@ clean:
 
 docs:
 	$(eval $@_TMP_OUT := $(shell mktemp -d -t model-cli-output.XXXXXXXXXX))
-	docker buildx bake --allow=fs.read=$(shell cd ../.. && pwd) --set "*.output=type=local,dest=$($@_TMP_OUT)" update-docs
+	HTTP_PROXY="http://172.17.0.1:7890" HTTPS_PROXY="http://172.17.0.1:7890" docker buildx bake --allow=fs.read=$(shell cd ../.. && pwd) --set "*.output=type=local,dest=$($@_TMP_OUT)" update-docs
 	rm -rf ./docs/reference/*
 	cp -R "$($@_TMP_OUT)"/* ./docs/reference/
 	rm -rf "$($@_TMP_OUT)"/*

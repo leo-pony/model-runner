@@ -61,11 +61,18 @@ validate:
 
 # Build Docker image
 docker-build:
-	docker buildx build $(DOCKER_BUILD_ARGS) .
+	HTTP_PROXY="http://172.17.0.1:7890" HTTPS_PROXY="http://172.17.0.1:7890" docker buildx build \
+    --build-arg HTTP_PROXY="http://172.17.0.1:7890" \
+    --build-arg HTTPS_PROXY="http://172.17.0.1:7890" \
+	$(DOCKER_BUILD_ARGS) .
 
 # Build multi-platform Docker image
 docker-build-multiplatform:
-	docker buildx build --platform linux/amd64,linux/arm64 $(DOCKER_BUILD_ARGS) .
+	HTTP_PROXY="http://172.17.0.1:7890" HTTPS_PROXY="http://172.17.0.1:7890" docker buildx build \
+	--progress=plain \
+    --build-arg HTTP_PROXY="http://172.17.0.1:7890" \
+    --build-arg HTTPS_PROXY="http://172.17.0.1:7890" \
+	--platform linux/amd64,linux/arm64 $(DOCKER_BUILD_ARGS) .
 
 # Run in Docker container with TCP port access and mounted model storage
 docker-run: docker-build
